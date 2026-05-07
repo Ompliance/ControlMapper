@@ -72,9 +72,9 @@
                             Semantic scores.</li>
                         <li><strong>Local Semantic Matching:</strong> Semantic matching models are downloaded
                             and run entirely locally within your browser!</li>
-                        <li><strong>Generative AI Gap Analysis:</strong> Only if enabled, note this will send data to
-                            LLMs - Uses Large Language Models (LLMs) to automatically detect and summarize gaps between
-                            your mapped controls.</li>
+                        <li><strong>Generative AI Gap Analysis:</strong> When enabled, uses either a browser-local LLM
+                            (no API key; first download is cached locally) or your configured cloud/provider LLM to
+                            automatically detect and summarize gaps between your mapped controls.</li>
                     </ul>
 
                     <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">How to Use</h3>
@@ -139,8 +139,8 @@
                                 <div class="toggle-container" style="margin-top: 1rem;">
                                     <label class="switch-label" for="gap-analysis-toggle">
                                         <span>Enable AI Gap Analysis</span>
-                                        <small>Automatically generates comments about gaps between controls when mapped
-                                            (requires API Key).</small>
+                                        <small>Automatically generates comments about gaps between controls when mapped.
+                                            Browser Local LLM runs without an API key.</small>
                                     </label>
                                     <label class="switch">
                                         <input type="checkbox" id="gap-analysis-toggle">
@@ -155,6 +155,7 @@
                                     </label>
                                     <select id="ai-provider-select" class="upload-btn"
                                         style="width: auto; background: var(--bg-dark);">
+                                        <option value="browser-local">Browser Local LLM (No API Key)</option>
                                         <option value="gemini">Google Gemini</option>
                                         <option value="openai">OpenAI / Compatible</option>
                                     </select>
@@ -163,7 +164,7 @@
                                 <div id="api-key-container" class="toggle-container" style="margin-top: 1rem;">
                                     <label class="switch-label">
                                         <span>API Key</span>
-                                        <small>Stored locally in your browser.</small>
+                                        <small>Stored locally in your browser. Not needed for Browser Local LLM.</small>
                                     </label>
                                     <input type="password" id="gemini-api-key" placeholder="Enter API Key"
                                         style="background: var(--bg-dark); color: white; border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; width: 300px; font-family: monospace;">
@@ -187,6 +188,21 @@
                                     <input type="text" id="ai-model-name" placeholder="gemini-1.5-flash"
                                         style="background: var(--bg-dark); color: white; border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; width: 300px;">
                                 </div>
+
+                                <div id="local-llm-container" class="toggle-container" style="margin-top: 1rem;">
+                                    <label class="switch-label">
+                                        <span>Browser Local LLM</span>
+                                        <small>Runs fully in your browser. First download is about 705 MB for the default model and is cached locally. Performance depends on WebGPU support and available memory.</small>
+                                    </label>
+                                    <select id="local-llm-model-select" class="upload-btn"
+                                        style="width: auto; background: var(--bg-dark);">
+                                        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Fast / broad compatibility: Llama 3.2 1B (~705 MB)</option>
+                                        <option value="gemma-2-2b-it-q4f16_1-MLC">Balanced quality: Gemma 2 2B (~1.49 GB)</option>
+                                        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Higher quality: Llama 3.2 3B (~1.82 GB)</option>
+                                    </select>
+                                </div>
+
+                                <div id="local-llm-status" class="model-status" style="display: none; margin-top: 0.75rem;"></div>
 
                                 <div class="toggle-container"
                                     style="margin-top: 1rem; flex-direction: column; align-items: flex-start;">
