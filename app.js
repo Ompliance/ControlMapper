@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const DEFAULT_AI_PROMPT_TEMPLATE = `Compare these two security controls and identify any GAPS in Control Library relative to Custom Controls. \n\nCustom Controls: "{{customText}}"\nControl Library: "{{controlLibraryText}}"\n\nResponse should be a concise summary of missing elements in Control Library. If no significant gaps, say "No significant gaps detected."`;
     const DEFAULT_AI_GROUP_PROMPT_TEMPLATE = `You are a security compliance expert. Compare multiple security controls (Control Library) against one control (Custom Controls). Identify if the COMBINED set of Control Library controls covers all elements of Custom Controls. If there are still GAPS, identify them concisely.\n\nCustom Controls: "{{customText}}"\nControl Library:\n{{controlLibraryList}}\n\nResponse should be a concise summary of missing elements in the combined set. If no significant gaps, say "No significant gaps detected."`;
 
+    const WEBLLM_CDN_URL = 'https://esm.run/@mlc-ai/web-llm';
+    const DEFAULT_LOCAL_LLM_MODEL = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
+    const CLOUD_DEFAULT_MODELS = ['gemini-1.5-flash', 'gpt-4o', DEFAULT_LOCAL_LLM_MODEL];
+
     // State management
     const state = {
         drata: {
@@ -39,9 +43,10 @@ document.addEventListener('DOMContentLoaded', () => {
         drataTokens: new Map(), // drataText -> Set of tokens
         gapAnalysisEnabled: false,
         geminiApiKey: '',
-        aiProvider: 'gemini',
+        aiProvider: 'browser-local',
         aiBaseUrl: '',
-        aiModel: 'gemini-1.5-flash',
+        aiModel: DEFAULT_LOCAL_LLM_MODEL,
+        localLlmModel: DEFAULT_LOCAL_LLM_MODEL,
         aiPromptTemplate: DEFAULT_AI_PROMPT_TEMPLATE,
         aiGroupPromptTemplate: DEFAULT_AI_GROUP_PROMPT_TEMPLATE,
         autoLoadModel: true
@@ -57,6 +62,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let semanticPipeline = null;
     let pipelinePromise = null;
     let isPipelineLoading = false;
+    let webLlmModule = null;
+    let localLlmEngine = null;
+    let localLlmPromise = null;
+    let loadedLocalLlmModel = null;
 
     async function initSemanticPipeline() {
         if (semanticPipeline) return; // Already loaded
@@ -351,7 +360,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiProviderSelect = document.getElementById('ai-provider-select');
     const aiBaseUrlInput = document.getElementById('ai-base-url');
     const aiModelNameInput = document.getElementById('ai-model-name');
+    const apiKeyContainer = document.getElementById('api-key-container');
     const aiBaseUrlContainer = document.getElementById('ai-base-url-container');
+    const aiModelContainer = document.getElementById('ai-model-container');
+    const localLlmContainer = document.getElementById('local-llm-container');
+    const localLlmModelSelect = document.getElementById('local-llm-model-select');
+    const localLlmStatus = document.getElementById('local-llm-status');
     const aiPromptTemplateInput = document.getElementById('ai-prompt-template');
     const aiGroupPromptTemplateInput = document.getElementById('ai-group-prompt-template');
     const autoLoadToggle = document.getElementById('auto-load-toggle');
@@ -362,6 +376,178 @@ document.addEventListener('DOMContentLoaded', () => {
         if (aiToggle) aiToggle.checked = true;
         initSemanticPipeline();
     };
+
+    function updateLocalLlmStatus(message, isError = false) {
+        if (!localLlmStatus) return;
+        localLlmStatus.style.display = message ? 'flex' : 'none';
+        localLlmStatus.textContent = message || '';
+        localLlmStatus.style.color = isError ? '#ef4444' : 'var(--text-muted)';
+    }
+
+    function getDefaultAiModelForProvider(provider) {
+        if (provider === 'gemini') return 'gemini-1.5-flash';
+        if (provider === 'openai') return 'gpt-4o';
+        return state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL;
+    }
+
+    function syncAiProviderSettings() {
+        const isLocalBrowser = state.aiProvider === 'browser-local';
+        const isOpenAiCompatible = state.aiProvider === 'openai';
+
+        if (apiKeyContainer) apiKeyContainer.style.display = isLocalBrowser ? 'none' : 'flex';
+        if (aiBaseUrlContainer) aiBaseUrlContainer.style.display = isOpenAiCompatible ? 'flex' : 'none';
+        if (aiModelContainer) aiModelContainer.style.display = isLocalBrowser ? 'none' : 'flex';
+        if (localLlmContainer) localLlmContainer.style.display = isLocalBrowser ? 'flex' : 'none';
+        if (localLlmStatus && !isLocalBrowser) updateLocalLlmStatus('');
+
+        if (aiProviderSelect) aiProviderSelect.value = state.aiProvider || 'browser-local';
+        if (localLlmModelSelect) localLlmModelSelect.value = state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL;
+        if (aiModelNameInput) aiModelNameInput.value = state.aiModel || getDefaultAiModelForProvider(state.aiProvider);
+    }
+
+    function isLocalOpenAiEndpoint(baseUrl) {
+        if (!baseUrl) return false;
+        try {
+            const url = new URL(baseUrl);
+            return ['localhost', '127.0.0.1', '::1', '[::1]'].includes(url.hostname);
+        } catch (e) {
+            return /^https?:\/\/(localhost|127\.0\.0\.1)([:/]|$)/i.test(baseUrl);
+        }
+    }
+
+    function validateGapAnalysisSettings() {
+        if (!state.gapAnalysisEnabled) {
+            return 'Please enable AI Gap Analysis in Settings first.';
+        }
+
+        if (state.aiProvider === 'browser-local') return '';
+
+        if (state.aiProvider === 'openai' && !state.geminiApiKey && isLocalOpenAiEndpoint(state.aiBaseUrl)) {
+            return '';
+        }
+
+        if (!state.geminiApiKey) {
+            return 'Please provide an API key or choose Browser Local LLM in Settings first.';
+        }
+
+        return '';
+    }
+
+    async function initBrowserLocalLlm() {
+        const modelId = state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL;
+
+        if (localLlmEngine && loadedLocalLlmModel === modelId) {
+            return localLlmEngine;
+        }
+
+        if (localLlmPromise && loadedLocalLlmModel === modelId) {
+            return localLlmPromise;
+        }
+
+        if (!navigator.gpu) {
+            throw new Error('Browser Local LLM requires WebGPU. Try a current Chrome or Edge browser with WebGPU enabled.');
+        }
+
+        localLlmPromise = (async () => {
+            updateLocalLlmStatus('Preparing Browser Local LLM. First download may take 1-5 minutes and is cached locally...');
+
+            if (!webLlmModule) {
+                webLlmModule = await import(WEBLLM_CDN_URL);
+            }
+
+            const initProgressCallback = (progress) => {
+                const percent = typeof progress.progress === 'number' ? ` ${Math.round(progress.progress * 100)}%` : '';
+                const text = progress.text || 'Downloading/loading local model';
+                updateLocalLlmStatus(`${text}${percent}`);
+            };
+
+            loadedLocalLlmModel = modelId;
+            localLlmEngine = await webLlmModule.CreateMLCEngine(modelId, { initProgressCallback });
+            updateLocalLlmStatus(`Browser Local LLM ready: ${modelId}`);
+            return localLlmEngine;
+        })();
+
+        try {
+            return await localLlmPromise;
+        } catch (error) {
+            localLlmPromise = null;
+            loadedLocalLlmModel = null;
+            updateLocalLlmStatus(error.message || 'Browser Local LLM failed to load.', true);
+            throw error;
+        }
+    }
+
+    async function generateWithBrowserLocalLlm(prompt) {
+        const engine = await initBrowserLocalLlm();
+        updateLocalLlmStatus('Generating local gap analysis...');
+
+        const completion = await engine.chat.completions.create({
+            messages: [
+                { role: 'system', content: 'You are a security compliance expert specialized in control mapping. Be concise and focus only on material gaps.' },
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.2,
+            max_tokens: 220
+        });
+
+        const result = completion?.choices?.[0]?.message?.content?.trim();
+        if (!result) throw new Error('Invalid Browser Local LLM response');
+        updateLocalLlmStatus(`Browser Local LLM ready: ${state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL}`);
+        return result;
+    }
+
+    async function generateGapAnalysisText(prompt) {
+        if (state.aiProvider === 'browser-local') {
+            return generateWithBrowserLocalLlm(prompt);
+        }
+
+        if (state.aiProvider === 'gemini') {
+            const model = state.aiModel || 'gemini-1.5-flash';
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${state.geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                })
+            });
+
+            const data = await response.json();
+            if (data.candidates && data.candidates[0].content.parts[0].text) {
+                return data.candidates[0].content.parts[0].text.trim();
+            }
+            throw new Error('Invalid Gemini response');
+        }
+
+        if (state.aiProvider === 'openai') {
+            const baseUrl = state.aiBaseUrl || 'https://api.openai.com/v1';
+            const model = state.aiModel || 'gpt-4o';
+            const headers = { 'Content-Type': 'application/json' };
+            if (state.geminiApiKey) {
+                headers.Authorization = `Bearer ${state.geminiApiKey}`;
+            }
+
+            const response = await fetch(`${baseUrl}/chat/completions`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    model: model,
+                    messages: [
+                        { role: 'system', content: 'You are a security compliance expert specialized in control mapping.' },
+                        { role: 'user', content: prompt }
+                    ],
+                    temperature: 0.2
+                })
+            });
+
+            const data = await response.json();
+            if (data.choices && data.choices[0].message.content) {
+                return data.choices[0].message.content.trim();
+            }
+            throw new Error('Invalid OpenAI-compatible response');
+        }
+
+        throw new Error(`Unsupported AI provider: ${state.aiProvider}`);
+    }
 
     // NLP Utils
     function tokenize(text) {
@@ -472,6 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (topXInput) topXInput.value = state.topX || 5;
         if (sortBySelect) sortBySelect.value = state.sortBy || 'semantic';
+        syncAiProviderSettings();
     }
 
     if (modelSourceSelect) {
@@ -516,13 +703,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aiProviderSelect) {
         aiProviderSelect.addEventListener('change', (e) => {
             state.aiProvider = e.target.value;
-            if (aiBaseUrlContainer) {
-                aiBaseUrlContainer.style.display = state.aiProvider === 'openai' ? 'flex' : 'none';
+            if (!state.aiModel || CLOUD_DEFAULT_MODELS.includes(state.aiModel)) {
+                state.aiModel = getDefaultAiModelForProvider(state.aiProvider);
             }
-            // Update default model if needed
-            if (!state.aiModel || state.aiModel === 'gemini-1.5-flash' || state.aiModel === 'gpt-4o') {
-                state.aiModel = state.aiProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o';
-                if (aiModelNameInput) aiModelNameInput.value = state.aiModel;
+            syncAiProviderSettings();
+            saveState();
+        });
+    }
+
+    if (localLlmModelSelect) {
+        localLlmModelSelect.addEventListener('change', (e) => {
+            state.localLlmModel = e.target.value;
+            if (state.aiProvider === 'browser-local') {
+                state.aiModel = state.localLlmModel;
+                localLlmEngine = null;
+                localLlmPromise = null;
+                loadedLocalLlmModel = null;
+                updateLocalLlmStatus('Local model selection changed. It will download/load on the next analysis.');
             }
             saveState();
         });
@@ -923,14 +1120,16 @@ document.addEventListener('DOMContentLoaded', () => {
                                  `;
 
                             row.querySelector('.select-match-btn').addEventListener('click', () => {
-                                if (state.gapAnalysisEnabled && state.geminiApiKey) {
-                                    const commentKey = `${mapKey}-${drataMappedId}`;
-                                    state.comments[commentKey] = "🤖 AI Analyzing gaps...";
-                                    runGapAnalysis(mapKey, drataMappedId, drataValue, customText);
-                                    renderMappingTable();
-                                } else {
-                                    alert('Please enable AI Gap Analysis and provide an API Key in Settings first.');
+                                const settingsError = validateGapAnalysisSettings();
+                                if (settingsError) {
+                                    alert(settingsError);
+                                    return;
                                 }
+
+                                const commentKey = `${mapKey}-${drataMappedId}`;
+                                state.comments[commentKey] = "🤖 AI Analyzing gaps...";
+                                runGapAnalysis(mapKey, drataMappedId, drataValue, customText);
+                                renderMappingTable();
                             });
 
                             row.querySelector('.comment-area').addEventListener('input', (e) => {
@@ -945,12 +1144,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             if (mIdx === 0) {
                                 row.querySelector('.group-analyze-btn').addEventListener('click', () => {
-                                    if (state.gapAnalysisEnabled && state.geminiApiKey) {
-                                        const mappedIds = state.mappings[mapKey] || [];
-                                        runGroupGapAnalysis(mapKey, mappedIds, customText);
-                                    } else {
-                                        alert('Please enable AI Gap Analysis and provide an API Key in Settings first.');
+                                    const settingsError = validateGapAnalysisSettings();
+                                    if (settingsError) {
+                                        alert(settingsError);
+                                        return;
                                     }
+
+                                    const mappedIds = state.mappings[mapKey] || [];
+                                    runGroupGapAnalysis(mapKey, mappedIds, customText);
                                 });
 
                                 row.querySelector('.group-comment-area').addEventListener('input', (e) => {
@@ -1029,48 +1230,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const template = state.aiGroupPromptTemplate || DEFAULT_AI_GROUP_PROMPT_TEMPLATE;
 
             const prompt = template
-                .replace('{{customText}}', customText)
-                .replace('{{controlLibraryList}}', combinedDrataText);
+                .replace(/{{customText}}/g, customText)
+                .replace(/{{controlLibraryList}}/g, combinedDrataText);
 
-            let result = '';
-            if (state.aiProvider === 'gemini') {
-                const model = state.aiModel || 'gemini-1.5-flash';
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${state.geminiApiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
-                });
-
-                const data = await response.json();
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
-                    result = data.candidates[0].content.parts[0].text.trim();
-                }
-            } else if (state.aiProvider === 'openai') {
-                const baseUrl = state.aiBaseUrl || 'https://api.openai.com/v1';
-                const model = state.aiModel || 'gpt-4o';
-                const response = await fetch(`${baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${state.geminiApiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [
-                            { role: 'system', content: 'You are a security compliance expert specialized in control mapping.' },
-                            { role: 'user', content: prompt }
-                        ],
-                        temperature: 0.2
-                    })
-                });
-
-                const data = await response.json();
-                if (data.choices && data.choices[0].message.content) {
-                    result = data.choices[0].message.content.trim();
-                }
-            }
+            const result = await generateGapAnalysisText(prompt);
 
             if (result) {
                 state.groupComments[customId] = result;
@@ -1079,7 +1242,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Group Gap Analysis Error:", error);
-            state.groupComments[customId] = "⚠️ Analysis failed. Check API key or connection.";
+            state.groupComments[customId] = "⚠️ Analysis failed. Check API key, local model support, endpoint, model name, or connection.";
             renderMappingTable();
         }
     }
@@ -1095,49 +1258,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .replace(/{{customText}}/g, customText)
                 .replace(/{{controlLibraryText}}/g, drataText);
 
-            let result = '';
-            if (state.aiProvider === 'gemini') {
-                const model = state.aiModel || 'gemini-1.5-flash';
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${state.geminiApiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
-                });
-
-                const data = await response.json();
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
-                    result = data.candidates[0].content.parts[0].text.trim();
-                } else {
-                    throw new Error("Invalid Gemini response");
-                }
-            } else if (state.aiProvider === 'openai') {
-                const baseUrl = state.aiBaseUrl || 'https://api.openai.com/v1';
-                const model = state.aiModel || 'gpt-4o';
-                const response = await fetch(`${baseUrl}/chat/completions`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${state.geminiApiKey}`
-                    },
-                    body: JSON.stringify({
-                        model: model,
-                        messages: [
-                            { role: 'system', content: 'You are a security compliance expert specialized in control mapping.' },
-                            { role: 'user', content: prompt }
-                        ],
-                        temperature: 0.2
-                    })
-                });
-
-                const data = await response.json();
-                if (data.choices && data.choices[0].message.content) {
-                    result = data.choices[0].message.content.trim();
-                } else {
-                    throw new Error("Invalid OpenAI response");
-                }
-            }
+            const result = await generateGapAnalysisText(prompt);
 
             if (result) {
                 state.comments[commentKey] = result;
@@ -1146,7 +1267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Gap Analysis Error:", error);
-            state.comments[commentKey] = "⚠️ Analysis failed. Check API key or connection.";
+            state.comments[commentKey] = "⚠️ Analysis failed. Check API key, local model support, endpoint, model name, or connection.";
             renderMappingTable();
         }
     }
@@ -1482,8 +1603,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Persistence Logic
     function saveState() {
         // We only save metadata and selections to LocalStorage to avoid quota issues with large datasets
-        const { drata, custom, mappings, comments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, customHost, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel } = state;
-        const stateToSave = { drata, custom, mappings, comments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, customHost, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel };
+        const { drata, custom, mappings, comments, groupComments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, customHost, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, localLlmModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel } = state;
+        const stateToSave = { drata, custom, mappings, comments, groupComments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, customHost, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, localLlmModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel };
 
         try {
             localStorage.setItem('controlMapperState', JSON.stringify(stateToSave));
@@ -1530,15 +1651,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (sortBySelect) sortBySelect.value = state.sortBy || 'semantic';
             if (aiToggle) aiToggle.checked = state.aiEnabled !== undefined ? state.aiEnabled : true;
             if (gapAnalysisToggle) gapAnalysisToggle.checked = state.gapAnalysisEnabled || false;
+            if (!state.localLlmModel) state.localLlmModel = DEFAULT_LOCAL_LLM_MODEL;
+            if (!state.aiProvider) state.aiProvider = 'browser-local';
+            if (state.aiProvider === 'browser-local' && !state.aiModel) state.aiModel = state.localLlmModel;
             if (geminiApiKeyInput) geminiApiKeyInput.value = state.geminiApiKey || '';
-            if (aiProviderSelect) {
-                aiProviderSelect.value = state.aiProvider || 'gemini';
-                if (aiBaseUrlContainer) {
-                    aiBaseUrlContainer.style.display = aiProviderSelect.value === 'openai' ? 'flex' : 'none';
-                }
-            }
             if (aiBaseUrlInput) aiBaseUrlInput.value = state.aiBaseUrl || '';
-            if (aiModelNameInput) aiModelNameInput.value = state.aiModel || (state.aiProvider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o');
+            syncAiProviderSettings();
             if (aiPromptTemplateInput) aiPromptTemplateInput.value = state.aiPromptTemplate || '';
             if (aiGroupPromptTemplateInput) aiGroupPromptTemplateInput.value = state.aiGroupPromptTemplate || '';
             if (autoLoadToggle) autoLoadToggle.checked = state.autoLoadModel !== undefined ? state.autoLoadModel : true;
@@ -1558,6 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 initSemanticPipeline();
             }
         }
+        syncAiProviderSettings();
         initResizableColumns();
     }
 
