@@ -31,7 +31,17 @@
     <div class="app-container">
         <header>
             <div class="logo">
-                <span class="logo-icon">∞</span>
+                <span class="logo-icon" aria-hidden="true">
+                    <svg viewBox="0 0 40 40" role="img">
+                        <rect x="5" y="8" width="11" height="24" rx="3"></rect>
+                        <rect x="24" y="8" width="11" height="24" rx="3"></rect>
+                        <path d="M16 15H24"></path>
+                        <path d="M16 25H24"></path>
+                        <path d="M12 14L15 17L20 12"></path>
+                        <path d="M27 16H32"></path>
+                        <path d="M27 24H32"></path>
+                    </svg>
+                </span>
                 <h1>ControlMapper</h1>
                 <div id="header-ai-status" class="header-ai-status" style="display: none;">
                     <span class="spinner-small"></span>
@@ -44,19 +54,21 @@
                 <button class="tab-btn" data-tab="upload">Upload</button>
                 <button class="tab-btn" data-tab="mapping">Mapping</button>
             </nav>
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch theme">
+                <span class="theme-toggle-icon">☾</span>
+            </button>
         </header>
 
         <main class="content">
             <section id="readme" class="tab-content active">
                 <div class="card">
                     <h2>About ControlMapper</h2>
-                    <p style="margin-bottom: 1rem;"><strong>Problem Statement:</strong> There are many scenarios where a
-                        Governance, Risk and Compliance practictioner needs to map a control against a set of controls.
-                        For example, mapping a regulatory requirement against an existing control library. This often
-                        involves identifying similar
-                        controls within the control library, and if applicable, modify the existing controls in the
-                        control library to meet the
-                        requirements.</p>
+                    <p style="margin-bottom: 1rem;"><strong>Problem Statement:</strong> Regulatory requirements,
+                        standards, and customer assurance expectations are changing quickly, and Governance, Risk and
+                        Compliance practitioners often need to assess whether existing control libraries still cover new
+                        or updated obligations. This requires mapping a regulatory requirement or custom control against
+                        an existing set of controls, identifying the closest matches, and determining whether the
+                        existing controls need to be updated to meet the new requirements.</p>
                     <p style="margin-bottom: 1rem;"><strong>Objective:</strong> ControlMapper is designed to help users
                         map <em>Custom Controls</em> to an existing <em>Control Library</em>. It achieves
                         this by looking for the most similar combinations using
@@ -83,19 +95,18 @@
                         <li><strong>Upload Data:</strong> Navigate to the <em>Upload</em> tab. Upload your Control
                             Library and Custom Controls data (Excel format). Select which columns contain the IDs and
                             Descriptions. The "Descriptions" column is used for similarity matching.</li>
-                        <li><strong>Local Semantic Matching</strong> The tool automatically downloads a local Transformer model for
-                                semantics comparison.  Initial model download will require a bit of time (2 minutes).
+                        <li><strong>Local Semantic Matching</strong> Go to <em>Settings</em> and click <em>Load semantic model now</em> when you want semantic comparison. Initial model download will require a bit of time (2 minutes).
                                 Model used: all-MiniLM-L6-v2. If Github source is blocked, download the model separately from Github repo
                                 and save it in the same folder as the tool. </li>
                         <li><strong>Map Controls:</strong> Navigate to the <em>Mapping</em> tab to view similar controls. 
                             You can customize the number of top matches to manually review. Once you have decided on the control to map, click on Map.
                                     </li>
-                        <li><strong>Configure LLM Gap Analysis (Optional):</strong> If you want LLM to perform Gap Analysis, 
-                            you need to input an API key. Go to the <em>Settings</em> tab, enable AI Gap
-                            Analysis, select your provider, and input your API key (e.g. Gemini or OpenAI). You can also
-                            customize the AI prompts here. Once done, you can use the Gap Analysis feature (Click Trigger LLM Analysis) 
-                            to compare the 2 controls. If you map multiple controls, you can use the Group Analysis feature to compare these multiple controls
-                            against the control. </li>
+                        <li><strong>Configure LLM Gap Analysis (Optional):</strong> Go to the <em>Settings</em> tab,
+                            enable AI Gap Analysis, then either load the Browser Local LLM or select a cloud/provider LLM
+                            and enter the required API key. You can also customize the gap-analysis prompts here. Once
+                            configured, use <em>Trigger LLM Analysis</em> to compare two controls, or use
+                            <em>Group Analysis</em> to compare multiple mapped Control Library controls against one
+                            Custom Control.</li>
                         
                         <li><strong>Export:</strong> You can click
                             the <em>Download Results</em> button to export everything to Excel at any point in the process. You can choose to do the AI Analysis in the Tool then do the Mapping in Excel if it is easier.</li>
@@ -115,17 +126,19 @@
                                 style="width: auto; background: var(--bg-dark);">
                                 <option value="local">Local Folder (Self-hosted)</option>
                                 <option value="github">GitHub Repo (Ompliance/ControlMapper)</option>
-                                <option value="custom">Custom URL...</option>
                             </select>
                         </div>
 
-                        <div id="custom-host-container" class="toggle-container"
-                            style="display: none; margin-bottom: 1rem;">
+                        <div class="toggle-container" style="margin-bottom: 1rem;">
                             <label class="switch-label">
-                                <span>Custom Host URL</span>
+                                <span>Semantic Matching Model</span>
+                                <small>Used for Semantic % and Weighted Avg %. Load it when you need semantic matching; otherwise Mapping uses keyword-only scores.</small>
                             </label>
-                            <input type="text" id="custom-host-url" placeholder="https://your-mirror.com"
-                                style="background: var(--bg-dark); color: white; border: 1px solid var(--border-color); padding: 5px 10px; border-radius: 4px; flex-grow: 1; margin-left: 20px;">
+                            <button id="download-ai-btn" class="upload-btn model-load-btn" type="button">Load semantic model now</button>
+                        </div>
+
+                        <div id="model-status" class="model-status" style="display: none; margin-bottom: 1rem;">
+                            <span class="spinner"></span> Loading AI Semantic Model...
                         </div>
 
                         <div class="settings-divider"
@@ -192,14 +205,15 @@
                                 <div id="local-llm-container" class="toggle-container" style="margin-top: 1rem;">
                                     <label class="switch-label">
                                         <span>Browser Local LLM</span>
-                                        <small>Runs fully in your browser. First download is about 705 MB for the default model and is cached locally. Performance depends on WebGPU support and available memory.</small>
+                                        <small>Runs fully in your browser and is cached locally. Larger models may need more GPU memory and may fail on some browsers/devices.</small>
                                     </label>
-                                    <select id="local-llm-model-select" class="upload-btn"
-                                        style="width: auto; background: var(--bg-dark);">
-                                        <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Fast / broad compatibility: Llama 3.2 1B (~705 MB)</option>
-                                        <option value="gemma-2-2b-it-q4f16_1-MLC">Balanced quality: Gemma 2 2B (~1.49 GB)</option>
-                                        <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Higher quality: Llama 3.2 3B (~1.82 GB)</option>
-                                    </select>
+                                    <div class="local-llm-actions">
+                                        <select id="local-llm-model-select" class="upload-btn"
+                                            style="width: auto; background: var(--bg-dark);">
+                                            <option value="Qwen3-0.6B-q4f16_1-MLC">Qwen3 0.6B</option>
+                                        </select>
+                                        <button id="local-llm-load-btn" class="upload-btn model-load-btn" type="button">Load model now</button>
+                                    </div>
                                 </div>
 
                                 <div id="local-llm-status" class="model-status" style="display: none; margin-top: 0.75rem;"></div>
@@ -237,6 +251,7 @@
             </section>
 
             <section id="upload" class="tab-content">
+                <div id="upload-model-status" class="model-readiness-banner"></div>
                 <div class="grid-container">
                     <!-- Control Library Upload -->
                     <div class="card upload-card" id="drata-card">
@@ -354,12 +369,7 @@
                                     <span class="slider-hint">Semantic</span>
                                 </div>
                             </div>
-                        </div>
-                        <div class="mapping-actions">
-                            <div id="model-status" class="model-status" style="display: none;">
-                                <span class="spinner"></span> Loading AI Semantic Model...
-                            </div>
-                            <button id="refresh-mapping-btn" class="upload-btn primary-btn" style="margin-right: 8px;">
+                            <button id="refresh-mapping-btn" class="upload-btn primary-btn refresh-config-btn">
                                 <svg viewBox="0 0 24 24" width="20" height="20" style="margin-right: 8px;">
                                     <path d="M12 16L12 8M12 8L9 11M12 8L15 11" stroke="currentColor" stroke-width="2"
                                         fill="none" />
@@ -369,6 +379,8 @@
                                 </svg>
                                 Refresh Suggestions
                             </button>
+                        </div>
+                        <div class="mapping-actions">
                             <button id="download-results-btn" class="upload-btn primary-btn">
                                 <svg viewBox="0 0 24 24" width="20" height="20" style="margin-right: 8px;">
                                     <path d="M12 16L12 8M12 8L9 11M12 8L15 11" stroke="currentColor" stroke-width="2"

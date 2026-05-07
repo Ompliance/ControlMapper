@@ -1,11 +1,38 @@
 document.addEventListener('DOMContentLoaded', () => {
 
-    const DEFAULT_AI_PROMPT_TEMPLATE = `Compare these two security controls and identify any GAPS in Control Library relative to Custom Controls. \n\nCustom Controls: "{{customText}}"\nControl Library: "{{controlLibraryText}}"\n\nResponse should be a concise summary of missing elements in Control Library. If no significant gaps, say "No significant gaps detected."`;
-    const DEFAULT_AI_GROUP_PROMPT_TEMPLATE = `You are a security compliance expert. Compare multiple security controls (Control Library) against one control (Custom Controls). Identify if the COMBINED set of Control Library controls covers all elements of Custom Controls. If there are still GAPS, identify them concisely.\n\nCustom Controls: "{{customText}}"\nControl Library:\n{{controlLibraryList}}\n\nResponse should be a concise summary of missing elements in the combined set. If no significant gaps, say "No significant gaps detected."`;
+    const LEGACY_AI_PROMPT_TEMPLATE = `Compare these two security controls and identify any GAPS in Control Library relative to Custom Controls. \n\nCustom Controls: "{{customText}}"\nControl Library: "{{controlLibraryText}}"\n\nResponse should be a concise summary of missing elements in Control Library. If no significant gaps, say "No significant gaps detected."`;
+    const LEGACY_AI_GROUP_PROMPT_TEMPLATE = `You are a security compliance expert. Compare multiple security controls (Control Library) against one control (Custom Controls). Identify if the COMBINED set of Control Library controls covers all elements of Custom Controls. If there are still GAPS, identify them concisely.\n\nCustom Controls: "{{customText}}"\nControl Library:\n{{controlLibraryList}}\n\nResponse should be a concise summary of missing elements in the combined set. If no significant gaps, say "No significant gaps detected."`;
+    const PREVIOUS_AI_PROMPT_TEMPLATE = `Compare these two controls and identify any GAPS in Control Library relative to Custom Controls. \n\nCustom Controls: "{{customText}}"\nControl Library: "{{controlLibraryText}}"\n\nResponse should be a concise summary of missing elements in Control Library. If no significant gaps, say "No significant gaps detected."`;
+    const PREVIOUS_AI_GROUP_PROMPT_TEMPLATE = `Compare multiple controls (Control Library) against one control (Custom Controls). Identify if the COMBINED set of Control Library controls covers all elements of Custom Controls. If there are still GAPS, identify them concisely.\n\nCustom Controls: "{{customText}}"\nControl Library:\n{{controlLibraryList}}\n\nResponse should be a concise summary of missing elements in the combined set. If no significant gaps, say "No significant gaps detected."`;
+    const DEFAULT_AI_PROMPT_TEMPLATE = `Custom Controls: "{{customText}}"
+Control Library: "{{controlLibraryText}}"
+
+List out the requirements present in the Custom Control but not present in Control Library.`;
+    const DEFAULT_AI_GROUP_PROMPT_TEMPLATE = `Compare coverage in one direction only: the combined Control Library controls must cover the Custom Controls.
+
+Custom Controls: "{{customText}}"
+Control Library:
+{{controlLibraryList}}
+
+Rules:
+- Identify requirements, responsibilities, scope, subject matter, timing, ownership, evidence, and outcomes in Custom Controls that are not clearly present across the combined Control Library controls.
+- Treat generic, adjacent, or broader governance language as a gap when it does not clearly include the specific Custom Controls requirement.
+- Do not say "No significant gaps detected" just because the controls are related or the Control Library contains extra detail.
+- Do not list strengths or extra Control Library content.
+
+Respond only in this format:
+Gaps detected:
+1. <missing Custom Controls requirement in plain language>
+
+If every material Custom Controls requirement is clearly covered, respond only:
+No significant gaps detected.`;
 
     const WEBLLM_CDN_URL = 'https://esm.run/@mlc-ai/web-llm';
-    const DEFAULT_LOCAL_LLM_MODEL = 'Llama-3.2-1B-Instruct-q4f16_1-MLC';
-    const CLOUD_DEFAULT_MODELS = ['gemini-1.5-flash', 'gpt-4o', DEFAULT_LOCAL_LLM_MODEL];
+    const DEFAULT_LOCAL_LLM_MODEL = 'Qwen3-0.6B-q4f16_1-MLC';
+    const LOCAL_LLM_MODELS = [
+        DEFAULT_LOCAL_LLM_MODEL
+    ];
+    const PROVIDER_DEFAULT_MODELS = ['gemini-1.5-flash', 'gpt-4o', ...LOCAL_LLM_MODELS];
 
     // State management
     const state = {
@@ -32,9 +59,8 @@ document.addEventListener('DOMContentLoaded', () => {
         stopwords: ['a', 'an', 'the', 'and', 'or', 'but', 'if', 'then', 'else', 'when', 'at', 'from', 'by', 'for', 'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under', 'again', 'further', 'then', 'once', 'here', 'there', 'where', 'why', 'how', 'all', 'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now', 'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 'that', 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing'],
         activeTab: 'readme',
         columnWidths: {}, // format: { classIdentifier: widthInPx }
-        aiEnabled: true,
+        aiEnabled: false,
         modelSource: 'github',
-        customHost: '',
         weightSemantic: 50, // 0-100, percentage for semantic weight
         embeddings: {
             drata: new Map(), // drataText -> embedding
@@ -49,7 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
         localLlmModel: DEFAULT_LOCAL_LLM_MODEL,
         aiPromptTemplate: DEFAULT_AI_PROMPT_TEMPLATE,
         aiGroupPromptTemplate: DEFAULT_AI_GROUP_PROMPT_TEMPLATE,
-        autoLoadModel: true
+        autoLoadModel: false,
+        theme: 'dark'
     };
 
     const modelStatus = document.getElementById('model-status');
@@ -65,6 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let webLlmModule = null;
     let localLlmEngine = null;
     let localLlmPromise = null;
+    let localLlmGenerationQueue = Promise.resolve();
     let loadedLocalLlmModel = null;
 
     async function initSemanticPipeline() {
@@ -107,22 +135,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
                 env.remotePathTemplate = 'models/{model}/';
             } else {
+                state.modelSource = 'github';
                 env.allowLocalModels = false;
                 env.allowRemoteModels = true;
-                env.remoteHost = state.modelSource === 'custom' ? state.customHost : state.modelSource;
-                env.remotePathTemplate = '{model}/resolve/{revision}/';
+                env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
+                env.remotePathTemplate = 'models/{model}/';
             }
 
             isPipelineLoading = true;
-            if (downloadAiBtn) {
-                downloadAiBtn.disabled = true;
-                downloadAiBtn.innerHTML = '⏳ Initializing...';
-            }
+            updateSemanticModelButton('Loading semantic model...', true);
 
             if (modelStatus) {
                 modelStatus.style.display = 'flex';
                 modelStatus.style.opacity = '1';
-                modelStatus.innerHTML = '<span class="spinner"></span> Connecting to Model Source...';
+                modelStatus.innerHTML = '<span class="spinner"></span> Preparing semantic model...';
             }
 
             if (headerStatus) {
@@ -142,9 +168,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     progress_callback: (data) => {
                         const progress = data.status === 'progress' ? Math.round(data.progress) : 0;
                         if (data.status === 'progress' && modelStatus) {
-                            modelStatus.innerHTML = `<span class="spinner"></span> Downloading AI Model: ${progress}%`;
+                            modelStatus.innerHTML = `<span class="spinner"></span> Downloading semantic model: ${progress}%`;
                         } else if (data.status === 'download' && modelStatus) {
                             modelStatus.innerHTML = `<span class="spinner"></span> Downloading: ${data.file}...`;
+                        } else if (data.status === 'ready' && modelStatus) {
+                            modelStatus.innerHTML = '<span class="spinner"></span> Initializing semantic model...';
                         }
 
                         if (headerStatusText) {
@@ -157,12 +185,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 console.log("AI Semantic Model Loaded Successfully.");
                 if (modelStatus) {
-                    modelStatus.innerHTML = '✨ AI Semantic Matching Active';
-                    setTimeout(() => {
-                        modelStatus.style.opacity = '0';
-                        setTimeout(() => modelStatus.style.display = 'none', 500);
-                    }, 3000);
+                    modelStatus.innerHTML = '✓ Semantic matching model loaded and ready.';
                 }
+                updateUploadModelStatus();
 
                 if (headerStatus) {
                     if (headerStatusText) headerStatusText.textContent = 'AI Ready';
@@ -196,10 +221,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 pipelinePromise = null; // Clear so it can be retried
             } finally {
                 isPipelineLoading = false;
-                if (downloadAiBtn) {
-                    downloadAiBtn.disabled = false;
-                    downloadAiBtn.innerHTML = '📥 Initialize / Re-download AI Model';
+                if (semanticPipeline) {
+                    updateSemanticModelButton('Semantic model ready', true);
+                } else {
+                    updateSemanticModelButton('Retry semantic model load');
                 }
+                updateUploadModelStatus();
             }
         })();
 
@@ -208,7 +235,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function getEmbedding(text, type) {
         if (!text || !state.aiEnabled) return null;
-        if (!semanticPipeline) await initSemanticPipeline();
         if (!semanticPipeline) return null;
 
         const cache = state.embeddings[type];
@@ -287,7 +313,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Semantic Score (using cached embeddings)
         let semanticScore = 0;
-        if (state.aiEnabled) {
+        const semanticAvailable = state.aiEnabled && !!semanticPipeline;
+        if (semanticAvailable) {
             const vecA = state.embeddings.custom.get(customText);
             const vecB = state.embeddings.drata.get(drataText);
             if (vecA && vecB) {
@@ -296,7 +323,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Weighted Score
-        const semanticWeight = state.weightSemantic / 100;
+        const semanticWeight = semanticAvailable ? state.weightSemantic / 100 : 0;
         const keywordWeight = 1 - semanticWeight;
         const weightedScore = (keywordScore * keywordWeight) + (semanticScore * semanticWeight);
 
@@ -339,11 +366,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const customPreview = document.getElementById('custom-col-preview');
 
     const exportBtn = document.getElementById('download-results-btn');
+    const themeToggle = document.getElementById('theme-toggle');
     const aiToggle = document.getElementById('ai-toggle');
     const downloadAiBtn = document.getElementById('download-ai-btn');
     const modelSourceSelect = document.getElementById('model-source-select');
-    const customHostUrl = document.getElementById('custom-host-url');
-    const customHostContainer = document.getElementById('custom-host-container');
+    const uploadModelStatus = document.getElementById('upload-model-status');
 
     const mappingWeightSlider = document.getElementById('mapping-weight-slider');
     const weightDisplay = document.getElementById('weight-value-display');
@@ -365,10 +392,77 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiModelContainer = document.getElementById('ai-model-container');
     const localLlmContainer = document.getElementById('local-llm-container');
     const localLlmModelSelect = document.getElementById('local-llm-model-select');
+    const localLlmLoadBtn = document.getElementById('local-llm-load-btn');
     const localLlmStatus = document.getElementById('local-llm-status');
     const aiPromptTemplateInput = document.getElementById('ai-prompt-template');
     const aiGroupPromptTemplateInput = document.getElementById('ai-group-prompt-template');
     const autoLoadToggle = document.getElementById('auto-load-toggle');
+
+    function applyTheme(theme) {
+        const normalizedTheme = theme === 'light' ? 'light' : 'dark';
+        state.theme = normalizedTheme;
+        document.body.dataset.theme = normalizedTheme;
+
+        if (themeToggle) {
+            const isLight = normalizedTheme === 'light';
+            themeToggle.setAttribute('aria-label', isLight ? 'Switch to dark mode' : 'Switch to light mode');
+            themeToggle.title = isLight ? 'Switch to dark mode' : 'Switch to light mode';
+            const icon = themeToggle.querySelector('.theme-toggle-icon');
+            if (icon) icon.textContent = isLight ? '☀' : '☾';
+        }
+    }
+
+    function updateSemanticModelButton(label = 'Load semantic model now', disabled = false) {
+        if (!downloadAiBtn) return;
+        downloadAiBtn.textContent = label;
+        downloadAiBtn.disabled = disabled;
+    }
+
+    function showSemanticModelIdleStatus() {
+        if (semanticPipeline) {
+            if (modelStatus) {
+                modelStatus.style.display = 'flex';
+                modelStatus.style.opacity = '1';
+                modelStatus.innerHTML = '✓ Semantic matching model loaded and ready.';
+            }
+            updateSemanticModelButton('Semantic model ready', true);
+            return;
+        }
+
+        if (pipelinePromise || isPipelineLoading) {
+            updateSemanticModelButton('Loading semantic model...', true);
+            return;
+        }
+
+        if (modelStatus) {
+            modelStatus.style.display = 'flex';
+            modelStatus.style.opacity = '1';
+            modelStatus.innerHTML = 'Semantic model not loaded. Mapping will use keyword-only scores until you load it.';
+        }
+        updateSemanticModelButton('Load semantic model now');
+    }
+
+    function updateUploadModelStatus() {
+        if (!uploadModelStatus) return;
+
+        const semanticReady = !!semanticPipeline;
+        const localLlmReady = !!localLlmEngine && loadedLocalLlmModel === (state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL);
+        const cloudLlmConfigured = state.aiProvider !== 'browser-local' && (!!state.geminiApiKey || (state.aiProvider === 'openai' && isLocalOpenAiEndpoint(state.aiBaseUrl)));
+        const llmReady = localLlmReady || cloudLlmConfigured;
+
+        if (semanticReady && llmReady) {
+            uploadModelStatus.className = 'model-readiness-banner ready';
+            uploadModelStatus.textContent = '✓ Models ready: semantic matching is loaded and gap analysis is configured.';
+            return;
+        }
+
+        const missing = [];
+        if (!semanticReady) missing.push('semantic matching model');
+        if (!llmReady) missing.push('load Browser Local LLM or provide an API key');
+
+        uploadModelStatus.className = 'model-readiness-banner warning';
+        uploadModelStatus.textContent = `⚠ Models not fully ready. Please go to Settings and ${missing.join(' and ')}.`;
+    }
 
     // Toggle Retry logic
     window.retryAiLoad = () => {
@@ -382,6 +476,97 @@ document.addEventListener('DOMContentLoaded', () => {
         localLlmStatus.style.display = message ? 'flex' : 'none';
         localLlmStatus.textContent = message || '';
         localLlmStatus.style.color = isError ? '#ef4444' : 'var(--text-muted)';
+    }
+
+    function updateLocalLlmLoadButton(label = 'Load model now', disabled = false) {
+        if (!localLlmLoadBtn) return;
+        localLlmLoadBtn.textContent = label;
+        localLlmLoadBtn.disabled = disabled;
+    }
+
+    function showLocalLlmIdleStatus() {
+        if (state.aiProvider !== 'browser-local') return;
+        const modelId = state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL;
+
+        if (localLlmEngine && loadedLocalLlmModel === modelId) {
+            updateLocalLlmStatus(`Browser Local LLM ready: ${modelId}`);
+            updateLocalLlmLoadButton('Model ready', true);
+            return;
+        }
+
+        if (localLlmPromise && loadedLocalLlmModel === modelId) {
+            updateLocalLlmLoadButton('Loading model...', true);
+            return;
+        }
+
+        updateLocalLlmStatus('Not loaded yet. Download/load starts when you run analysis or click Load model now. Progress appears here.');
+        updateLocalLlmLoadButton('Load model now');
+    }
+
+    function formatAiErrorMessage(error) {
+        const rawMessage = error?.message || String(error || '');
+        const lowerMessage = rawMessage.toLowerCase();
+
+        if (lowerMessage.includes('dxgi_error_device_removed') || lowerMessage.includes('d3d12 create command queue failed') || lowerMessage.includes('requestdevice')) {
+            return '⚠️ Analysis failed. Browser WebGPU cannot create a usable GPU device in this browser session. Restart the browser, check chrome://gpu or edge://gpu for WebGPU support, or use Gemini/OpenAI-compatible analysis instead of Browser Local LLM on this machine.';
+        }
+
+        if (lowerMessage.includes('mapasync') || lowerMessage.includes('buffer was unmapped')) {
+            return '⚠️ Analysis failed. Browser WebGPU failed during generation. The app reset the local model and retried once; if it repeats, reload the page and try Qwen again.';
+        }
+
+        const detail = rawMessage && rawMessage !== '[object Object]' ? ` Detail: ${rawMessage}` : '';
+        return `⚠️ Analysis failed.${detail}`;
+    }
+
+    function isTransientWebGpuError(error) {
+        const message = (error?.message || String(error || '')).toLowerCase();
+        return message.includes('gpu')
+            || message.includes('mapasync')
+            || message.includes('requestdevice')
+            || message.includes('dxgi_error_device_removed')
+            || message.includes('d3d12 create command queue failed')
+            || message.includes('buffer was unmapped');
+    }
+
+    function resetBrowserLocalLlm() {
+        localLlmEngine = null;
+        localLlmPromise = null;
+        loadedLocalLlmModel = null;
+        updateLocalLlmLoadButton('Retry load');
+        updateUploadModelStatus();
+    }
+
+    function stripModelThinking(text) {
+        let cleaned = String(text || '').trim();
+        cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+        cleaned = cleaned.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
+        return cleaned;
+    }
+
+    function normalizeTemplateForMigration(template) {
+        return String(template || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    }
+
+    function isOldSingleGapTemplate(template) {
+        const normalized = normalizeTemplateForMigration(template);
+        const isKnownOldDefault = normalized.includes('compare these two')
+            || normalized.includes('compare coverage in one direction only');
+
+        return isKnownOldDefault
+            && normalized.includes('custom controls')
+            && normalized.includes('control library')
+            && normalized.includes('no significant gaps detected');
+    }
+
+    function isOldGroupGapTemplate(template) {
+        const normalized = normalizeTemplateForMigration(template);
+        return normalized.includes('compare multiple')
+            && normalized.includes('custom controls')
+            && normalized.includes('control library')
+            && normalized.includes('combined')
+            && normalized.includes('no significant gaps detected')
+            && !normalized.includes('compare coverage in one direction only');
     }
 
     function getDefaultAiModelForProvider(provider) {
@@ -399,10 +584,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (aiModelContainer) aiModelContainer.style.display = isLocalBrowser ? 'none' : 'flex';
         if (localLlmContainer) localLlmContainer.style.display = isLocalBrowser ? 'flex' : 'none';
         if (localLlmStatus && !isLocalBrowser) updateLocalLlmStatus('');
+        if (!isLocalBrowser) updateLocalLlmLoadButton('Load model now');
 
         if (aiProviderSelect) aiProviderSelect.value = state.aiProvider || 'browser-local';
         if (localLlmModelSelect) localLlmModelSelect.value = state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL;
         if (aiModelNameInput) aiModelNameInput.value = state.aiModel || getDefaultAiModelForProvider(state.aiProvider);
+        if (isLocalBrowser) showLocalLlmIdleStatus();
     }
 
     function isLocalOpenAiEndpoint(baseUrl) {
@@ -450,6 +637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         localLlmPromise = (async () => {
             updateLocalLlmStatus('Preparing Browser Local LLM. First download may take 1-5 minutes and is cached locally...');
+            updateLocalLlmLoadButton('Loading model...', true);
 
             if (!webLlmModule) {
                 webLlmModule = await import(WEBLLM_CDN_URL);
@@ -464,6 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
             loadedLocalLlmModel = modelId;
             localLlmEngine = await webLlmModule.CreateMLCEngine(modelId, { initProgressCallback });
             updateLocalLlmStatus(`Browser Local LLM ready: ${modelId}`);
+            updateLocalLlmLoadButton('Model ready', true);
+            updateUploadModelStatus();
             return localLlmEngine;
         })();
 
@@ -473,27 +663,47 @@ document.addEventListener('DOMContentLoaded', () => {
             localLlmPromise = null;
             loadedLocalLlmModel = null;
             updateLocalLlmStatus(error.message || 'Browser Local LLM failed to load.', true);
+            updateLocalLlmLoadButton('Retry load');
+            updateUploadModelStatus();
             throw error;
         }
     }
 
     async function generateWithBrowserLocalLlm(prompt) {
-        const engine = await initBrowserLocalLlm();
-        updateLocalLlmStatus('Generating local gap analysis...');
+        const runGeneration = async (attempt = 1) => {
+            const engine = await initBrowserLocalLlm();
+            updateLocalLlmStatus(attempt === 1 ? 'Generating local gap analysis...' : 'Retrying local generation after WebGPU reset...');
 
-        const completion = await engine.chat.completions.create({
-            messages: [
-                { role: 'system', content: 'You are a security compliance expert specialized in control mapping. Be concise and focus only on material gaps.' },
-                { role: 'user', content: prompt }
-            ],
-            temperature: 0.2,
-            max_tokens: 220
-        });
+            const completion = await engine.chat.completions.create({
+                messages: [
+                    { role: 'system', content: 'You are a strict control mapping reviewer. Compare only from Custom Controls to Control Library. Report a gap when the Control Library omits, generalizes, or only indirectly addresses a Custom Controls requirement. Do not reward extra detail in the Control Library unless it covers the Custom Controls requirement. Return only the final answer. Do not include reasoning, chain-of-thought, thinking tags, or analysis notes.' },
+                    { role: 'user', content: prompt }
+                ],
+                temperature: 0,
+                max_tokens: 1024
+            });
 
-        const result = completion?.choices?.[0]?.message?.content?.trim();
-        if (!result) throw new Error('Invalid Browser Local LLM response');
-        updateLocalLlmStatus(`Browser Local LLM ready: ${state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL}`);
-        return result;
+            const result = stripModelThinking(completion?.choices?.[0]?.message?.content);
+            if (!result) throw new Error('Invalid Browser Local LLM response');
+            updateLocalLlmStatus(`Browser Local LLM ready: ${state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL}`);
+            return result;
+        };
+
+        const queuedGeneration = localLlmGenerationQueue
+            .catch(() => { })
+            .then(async () => {
+                try {
+                    return await runGeneration();
+                } catch (error) {
+                    if (!isTransientWebGpuError(error)) throw error;
+                    console.warn('Browser Local LLM WebGPU generation failed; resetting engine and retrying once.', error);
+                    resetBrowserLocalLlm();
+                    return runGeneration(2);
+                }
+            });
+
+        localLlmGenerationQueue = queuedGeneration.catch(() => { });
+        return queuedGeneration;
     }
 
     async function generateGapAnalysisText(prompt) {
@@ -507,13 +717,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    contents: [{ parts: [{ text: prompt }] }]
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0
+                    }
                 })
             });
 
             const data = await response.json();
             if (data.candidates && data.candidates[0].content.parts[0].text) {
-                return data.candidates[0].content.parts[0].text.trim();
+                return stripModelThinking(data.candidates[0].content.parts[0].text);
             }
             throw new Error('Invalid Gemini response');
         }
@@ -532,16 +745,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     model: model,
                     messages: [
-                        { role: 'system', content: 'You are a security compliance expert specialized in control mapping.' },
+                        { role: 'system', content: 'You are a strict control mapping reviewer. Compare only from Custom Controls to Control Library. Report a gap when the Control Library omits, generalizes, or only indirectly addresses a Custom Controls requirement. Do not reward extra detail in the Control Library unless it covers the Custom Controls requirement. Return only the final answer. Do not include reasoning, chain-of-thought, thinking tags, or analysis notes.' },
                         { role: 'user', content: prompt }
                     ],
-                    temperature: 0.2
+                    temperature: 0
                 })
             });
 
             const data = await response.json();
             if (data.choices && data.choices[0].message.content) {
-                return data.choices[0].message.content.trim();
+                return stripModelThinking(data.choices[0].message.content);
             }
             throw new Error('Invalid OpenAI-compatible response');
         }
@@ -637,6 +850,7 @@ document.addEventListener('DOMContentLoaded', () => {
             switchTab(tabName);
             if (tabName === 'mapping') renderMappingTable();
             if (tabName === 'settings') renderSettings();
+            if (tabName === 'upload') updateUploadModelStatus();
         });
     });
 
@@ -652,26 +866,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSettings() {
         if (aiToggle) aiToggle.checked = state.aiEnabled;
         if (modelSourceSelect) modelSourceSelect.value = state.modelSource;
-        if (customHostUrl) customHostUrl.value = state.customHost;
-        if (customHostContainer) {
-            customHostContainer.style.display = state.modelSource === 'custom' ? 'flex' : 'none';
-        }
         if (topXInput) topXInput.value = state.topX || 5;
         if (sortBySelect) sortBySelect.value = state.sortBy || 'semantic';
         syncAiProviderSettings();
+        showSemanticModelIdleStatus();
     }
 
     if (modelSourceSelect) {
         modelSourceSelect.addEventListener('change', (e) => {
             state.modelSource = e.target.value;
+            semanticPipeline = null;
+            pipelinePromise = null;
+            isPipelineLoading = false;
             renderSettings();
-            saveState();
-        });
-    }
-
-    if (customHostUrl) {
-        customHostUrl.addEventListener('input', (e) => {
-            state.customHost = e.target.value;
             saveState();
         });
     }
@@ -680,9 +887,7 @@ document.addEventListener('DOMContentLoaded', () => {
         aiToggle.addEventListener('change', (e) => {
             state.aiEnabled = e.target.checked;
             saveState();
-            if (state.aiEnabled && !semanticPipeline) {
-                initSemanticPipeline();
-            }
+            showSemanticModelIdleStatus();
         });
     }
 
@@ -703,7 +908,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (aiProviderSelect) {
         aiProviderSelect.addEventListener('change', (e) => {
             state.aiProvider = e.target.value;
-            if (!state.aiModel || CLOUD_DEFAULT_MODELS.includes(state.aiModel)) {
+            if (!state.aiModel || PROVIDER_DEFAULT_MODELS.includes(state.aiModel)) {
                 state.aiModel = getDefaultAiModelForProvider(state.aiProvider);
             }
             syncAiProviderSettings();
@@ -719,9 +924,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 localLlmEngine = null;
                 localLlmPromise = null;
                 loadedLocalLlmModel = null;
-                updateLocalLlmStatus('Local model selection changed. It will download/load on the next analysis.');
+                showLocalLlmIdleStatus();
             }
             saveState();
+        });
+    }
+
+    if (localLlmLoadBtn) {
+        localLlmLoadBtn.addEventListener('click', async () => {
+            try {
+                await initBrowserLocalLlm();
+            } catch (error) {
+                console.error('Browser Local LLM load failed:', error);
+            }
         });
     }
 
@@ -755,7 +970,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (autoLoadToggle) {
         autoLoadToggle.addEventListener('change', (e) => {
-            state.autoLoadModel = e.target.checked;
+            state.autoLoadModel = false;
+            autoLoadToggle.checked = false;
             saveState();
         });
     }
@@ -767,7 +983,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (aiToggle) aiToggle.checked = true;
             semanticPipeline = null;
             isPipelineLoading = false;
+            saveState();
             initSemanticPipeline();
+        });
+    }
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            applyTheme(state.theme === 'light' ? 'dark' : 'light');
+            saveState();
         });
     }
 
@@ -839,9 +1063,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // 1. Ensure all embeddings are cached
-            if (state.aiEnabled) {
+            if (state.aiEnabled && semanticPipeline) {
                 console.log("Ensuring AI embeddings are cached...");
-                await initSemanticPipeline(); // Ensure model is loaded
 
                 const customTexts = state.custom.data.map(c => getColumnValue(c, state.custom.selectedColumn) || '');
                 await precalculateEmbeddings(customTexts, 'custom');
@@ -991,24 +1214,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 1. Pre-calculate Custom Embeddings
-        if (state.aiEnabled) {
-            await initSemanticPipeline(); // Ensure model is loaded
-
+        if (state.aiEnabled && semanticPipeline) {
             const customTexts = state.custom.data.map(c => getColumnValue(c, state.custom.selectedColumn) || '');
             await precalculateEmbeddings(customTexts, 'custom');
 
             const drataTexts = state.drata.data.map(d => getColumnValue(d, state.drata.selectedColumn) || '');
             await precalculateEmbeddings(drataTexts, 'drata');
 
-            if (modelStatus) {
-                setTimeout(() => {
-                    modelStatus.style.opacity = '0';
-                    setTimeout(() => {
-                        modelStatus.style.display = 'none';
-                        modelStatus.style.opacity = '1';
-                    }, 500);
-                }, 800);
-            }
+        } else if (state.aiEnabled && !semanticPipeline && modelStatus) {
+            modelStatus.style.display = 'flex';
+            modelStatus.style.opacity = '1';
+            modelStatus.innerHTML = 'Semantic model not loaded. Mapping is using keyword-only scores. Go to Settings and click Load semantic model now to enable Semantic %.';
         }
 
         mappingBody.innerHTML = '';
@@ -1242,7 +1458,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Group Gap Analysis Error:", error);
-            state.groupComments[customId] = "⚠️ Analysis failed. Check API key, local model support, endpoint, model name, or connection.";
+            const message = formatAiErrorMessage(error);
+            state.groupComments[customId] = message;
+            updateLocalLlmStatus(message, true);
             renderMappingTable();
         }
     }
@@ -1267,7 +1485,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error("Gap Analysis Error:", error);
-            state.comments[commentKey] = "⚠️ Analysis failed. Check API key, local model support, endpoint, model name, or connection.";
+            const message = formatAiErrorMessage(error);
+            state.comments[commentKey] = message;
+            updateLocalLlmStatus(message, true);
             renderMappingTable();
         }
     }
@@ -1603,8 +1823,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Persistence Logic
     function saveState() {
         // We only save metadata and selections to LocalStorage to avoid quota issues with large datasets
-        const { drata, custom, mappings, comments, groupComments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, customHost, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, localLlmModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel } = state;
-        const stateToSave = { drata, custom, mappings, comments, groupComments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, customHost, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, localLlmModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel };
+        const { drata, custom, mappings, comments, groupComments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, localLlmModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel, theme } = state;
+        const stateToSave = { drata, custom, mappings, comments, groupComments, threshold, activeTab, stopwords, columnWidths, aiEnabled, modelSource, gapAnalysisEnabled, geminiApiKey, aiProvider, aiBaseUrl, aiModel, localLlmModel, aiPromptTemplate, aiGroupPromptTemplate, autoLoadModel, theme };
 
         try {
             localStorage.setItem('controlMapperState', JSON.stringify(stateToSave));
@@ -1624,6 +1844,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (saved) {
             const parsed = JSON.parse(saved);
             Object.assign(state, parsed);
+            let migratedPromptTemplates = false;
+            state.autoLoadModel = false;
+            applyTheme(state.theme || 'dark');
+            if (state.modelSource === 'custom') state.modelSource = 'github';
+            if (!LOCAL_LLM_MODELS.includes(state.localLlmModel)) {
+                state.localLlmModel = DEFAULT_LOCAL_LLM_MODEL;
+            }
+            if (state.aiProvider === 'browser-local') {
+                state.aiModel = state.localLlmModel;
+            }
 
             // Enforce defaults if saved as empty strings
             if (!state.aiPromptTemplate) state.aiPromptTemplate = DEFAULT_AI_PROMPT_TEMPLATE;
@@ -1636,6 +1866,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (state.aiGroupPromptTemplate) {
                 state.aiGroupPromptTemplate = state.aiGroupPromptTemplate.replace(/{{drataControlsList}}/g, '{{controlLibraryList}}');
             }
+            if (isOldSingleGapTemplate(state.aiPromptTemplate)) {
+                state.aiPromptTemplate = DEFAULT_AI_PROMPT_TEMPLATE;
+                migratedPromptTemplates = true;
+            }
+            if (isOldGroupGapTemplate(state.aiGroupPromptTemplate)) {
+                state.aiGroupPromptTemplate = DEFAULT_AI_GROUP_PROMPT_TEMPLATE;
+                migratedPromptTemplates = true;
+            }
+            if (migratedPromptTemplates) saveState();
 
             // Migration: convert old single mappings (string) to arrays
             if (state.mappings) {
@@ -1659,7 +1898,7 @@ document.addEventListener('DOMContentLoaded', () => {
             syncAiProviderSettings();
             if (aiPromptTemplateInput) aiPromptTemplateInput.value = state.aiPromptTemplate || '';
             if (aiGroupPromptTemplateInput) aiGroupPromptTemplateInput.value = state.aiGroupPromptTemplate || '';
-            if (autoLoadToggle) autoLoadToggle.checked = state.autoLoadModel !== undefined ? state.autoLoadModel : true;
+            if (autoLoadToggle) autoLoadToggle.checked = false;
 
             if (state.drata.data) updateUI('drata');
             if (state.custom.data) updateUI('custom');
@@ -1669,14 +1908,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderMappingTable();
                 applySavedColumnWidths();
             }
-
-            // Automatic background loading
-            if (state.aiEnabled) {
-                console.log("Auto-loading AI model in background...");
-                initSemanticPipeline();
-            }
         }
+        applyTheme(state.theme || 'dark');
         syncAiProviderSettings();
+        showSemanticModelIdleStatus();
+        updateUploadModelStatus();
         initResizableColumns();
     }
 
