@@ -14,7 +14,6 @@ The tool does not map or approve controls on behalf of the user. It ranks candid
 - **Speeds up initial mapping:** Instead of manually scanning a control library, users upload a regulatory/custom control set and a control library. ControlMapper ranks likely matches using keyword and semantic similarity.
 - **Supports human review rather than replacing it:** The tool does not auto-approve mappings. It gives candidate matches, scores, and text side by side so the practitioner remains the decision-maker.
 - **Highlights possible gaps:** The LLM gap analysis can compare a custom requirement against a candidate control and list requirements present in the custom control but missing from the control library.
-- **Handles partial coverage:** Group Analysis helps when one requirement is covered by multiple controls, which is common in real control libraries.
 - **Works with spreadsheets:** Many GRC teams still operate heavily in Excel. ControlMapper meets users where their data already is, instead of requiring immediate migration into a full GRC platform.
 
 ## How to use
