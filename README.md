@@ -1,6 +1,29 @@
-# ControlMapper Installation & Setup Guide
+# ControlMapper
 
-ControlMapper is a secure, browser-based tool for mapping Custom Controls to a Control Library using keyword and transformer-based semantic matching.
+ControlMapper is a free, browser-based compliance control mapping and gap analysis tool for GRC teams. It helps practitioners compare regulations, frameworks, customer requirements, and internal control libraries, then review likely matches using keyword and semantic similarity.
+
+## About ControlMapper
+
+Regulatory requirements, standards, and customer assurance expectations are changing quickly. Governance, Risk and Compliance practitioners often need to assess whether existing control libraries still cover new or updated obligations. ControlMapper supports that workflow by helping users map custom controls to an existing control library, identify likely matches, and review possible gaps.
+
+The tool does not map or approve controls on behalf of the user. It ranks candidate matches and presents the source text, candidate control text, scores, and optional gap analysis so the practitioner remains the decision-maker.
+
+## Key features
+
+- **Protects privacy:** No data is sent to our servers. All calculations happen locally on your device.
+- **Speeds up initial mapping:** Instead of manually scanning a control library, users upload a regulatory/custom control set and a control library. ControlMapper ranks likely matches using keyword and semantic similarity.
+- **Supports human review rather than replacing it:** The tool does not auto-approve mappings. It gives candidate matches, scores, and text side by side so the practitioner remains the decision-maker.
+- **Highlights possible gaps:** The LLM gap analysis can compare a custom requirement against a candidate control and list requirements present in the custom control but missing from the control library.
+- **Handles partial coverage:** Group Analysis helps when one requirement is covered by multiple controls, which is common in real control libraries.
+- **Works with spreadsheets:** Many GRC teams still operate heavily in Excel. ControlMapper meets users where their data already is, instead of requiring immediate migration into a full GRC platform.
+
+## How to use
+
+1. **Upload data:** Upload your Control Library and Custom Controls data in Excel or CSV format. Select the ID and description columns used for matching.
+2. **Load semantic matching when needed:** In Settings, load the semantic model to enable semantic and weighted-average scoring. If you do not load it, Mapping can still use keyword-only scores.
+3. **Review candidate matches:** Use the Mapping tab to review ranked matches, compare source and candidate text side by side, and choose mappings manually.
+4. **Configure gap analysis optionally:** Enable AI Gap Analysis in Settings, then use Browser Local LLM or a configured cloud/provider LLM to compare controls. Group Analysis can compare multiple mapped Control Library controls against one Custom Control.
+5. **Export results:** Download the mapping results to Excel at any point in the process.
 
 ## How to access ControlMapper
 
