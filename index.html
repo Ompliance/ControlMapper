@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ControlMapper | Secure Control Mapping Tool</title>
+    <title>ControlMapper | Free Compliance Control Mapping and Gap Analysis Tool</title>
+    <meta name="description"
+        content="Compare regulations, frameworks, customer requirements, and internal control libraries. ControlMapper suggests likely control matches using keyword and semantic similarity, with optional AI-assisted gap analysis.">
     <link rel="stylesheet" href="styles.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -78,18 +80,25 @@
 
                     <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">Key Features</h3>
                     <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: var(--text-muted); line-height: 1.6;">
-                        <li><strong>Similarity Scoring:</strong> Combines keyword matching and semantic
-                            meaning matching to find the most relevant controls.</li>
-                        <li><strong>Adjustable Weights:</strong> Adjust the % weightage between Keyword and
-                            Semantic scores.</li>
-                        <li><strong>Local Semantic Matching:</strong> Semantic matching models are downloaded
-                            and run entirely locally within your browser!</li>
-                        <li><strong>Generative AI Gap Analysis:</strong> When enabled, uses either a browser-local LLM
-                            (no API key; first download is cached locally) or your configured cloud/provider LLM to
-                            automatically detect and summarize gaps between your mapped controls.</li>
+                        <li><strong>Protects privacy:</strong> No data is sent to our servers. All calculations happen
+                            locally on your device.</li>
+                        <li><strong>Speeds up initial mapping:</strong> Instead of manually scanning a control library,
+                            users upload a regulatory/custom control set and a control library. ControlMapper ranks
+                            likely matches using keyword and semantic similarity.</li>
+                        <li><strong>Supports human review rather than replacing it:</strong> The tool does not
+                            auto-approve mappings. It gives candidate matches, scores, and text side by side so the
+                            practitioner remains the decision-maker.</li>
+                        <li><strong>Highlights possible gaps:</strong> The LLM gap analysis can compare a custom
+                            requirement against a candidate control and list requirements present in the custom control
+                            but missing from the control library.</li>
+                        <li><strong>Handles partial coverage:</strong> Group Analysis helps when one requirement is
+                            covered by multiple controls, which is common in real control libraries.</li>
+                        <li><strong>Works with spreadsheets:</strong> Many GRC teams still operate heavily in Excel.
+                            ControlMapper meets users where their data already is, instead of requiring immediate
+                            migration into a full GRC platform.</li>
                     </ul>
 
-                    <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">How to Use</h3>
+                    <h3 id="workflow" style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">How to Use</h3>
                     <ol style="margin-left: 1.5rem; margin-bottom: 1rem; color: var(--text-muted); line-height: 1.6;">
                         
                         <li><strong>Upload Data:</strong> Navigate to the <em>Upload</em> tab. Upload your Control
