@@ -8,31 +8,17 @@ document.addEventListener('DOMContentLoaded', () => {
 Control Library: "{{controlLibraryText}}"
 
 List out the requirements present in the Custom Control but not present in Control Library.`;
-    const DEFAULT_AI_GROUP_PROMPT_TEMPLATE = `Compare coverage in one direction only: the combined Control Library controls must cover the Custom Controls.
+    const DEFAULT_AI_GROUP_PROMPT_TEMPLATE = `Custom Controls: "{{customText}}"
+Control Library: "{{controlLibraryText}}"
 
-Custom Controls: "{{customText}}"
-Control Library:
-{{controlLibraryList}}
-
-Rules:
-- Identify requirements, responsibilities, scope, subject matter, timing, ownership, evidence, and outcomes in Custom Controls that are not clearly present across the combined Control Library controls.
-- Treat generic, adjacent, or broader governance language as a gap when it does not clearly include the specific Custom Controls requirement.
-- Do not say "No significant gaps detected" just because the controls are related or the Control Library contains extra detail.
-- Do not list strengths or extra Control Library content.
-
-Respond only in this format:
-Gaps detected:
-1. <missing Custom Controls requirement in plain language>
-
-If every material Custom Controls requirement is clearly covered, respond only:
-No significant gaps detected.`;
+List out the requirements present in the Custom Control but not present in Control Library.`;
 
     const WEBLLM_CDN_URL = 'https://esm.run/@mlc-ai/web-llm';
     const DEFAULT_LOCAL_LLM_MODEL = 'Qwen3-0.6B-q4f16_1-MLC';
     const LOCAL_LLM_MODELS = [
         DEFAULT_LOCAL_LLM_MODEL
     ];
-    const PROVIDER_DEFAULT_MODELS = ['gemini-1.5-flash', 'gpt-4o', ...LOCAL_LLM_MODELS];
+    const PROVIDER_DEFAULT_MODELS = ['gpt-4o', ...LOCAL_LLM_MODELS];
 
     // State management
     const state = {
@@ -571,7 +557,6 @@ No significant gaps detected.`;
     }
 
     function getDefaultAiModelForProvider(provider) {
-        if (provider === 'gemini') return 'gemini-1.5-flash';
         if (provider === 'openai') return 'gpt-4o';
         return state.localLlmModel || DEFAULT_LOCAL_LLM_MODEL;
     }
@@ -1449,7 +1434,8 @@ No significant gaps detected.`;
 
             const prompt = template
                 .replace(/{{customText}}/g, customText)
-                .replace(/{{controlLibraryList}}/g, combinedDrataText);
+                .replace(/{{controlLibraryList}}/g, combinedDrataText)
+                .replace(/{{controlLibraryText}}/g, combinedDrataText);
 
             const result = await generateGapAnalysisText(prompt);
 
@@ -1894,6 +1880,7 @@ No significant gaps detected.`;
             if (gapAnalysisToggle) gapAnalysisToggle.checked = state.gapAnalysisEnabled || false;
             if (!state.localLlmModel) state.localLlmModel = DEFAULT_LOCAL_LLM_MODEL;
             if (!state.aiProvider) state.aiProvider = 'browser-local';
+            if (state.aiProvider === 'gemini') state.aiProvider = 'browser-local';
             if (state.aiProvider === 'browser-local' && !state.aiModel) state.aiModel = state.localLlmModel;
             if (geminiApiKeyInput) geminiApiKeyInput.value = state.geminiApiKey || '';
             if (aiBaseUrlInput) aiBaseUrlInput.value = state.aiBaseUrl || '';

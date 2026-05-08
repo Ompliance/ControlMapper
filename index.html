@@ -81,8 +81,7 @@
                     <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">Key Features</h3>
                     <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: var(--text-muted); line-height: 1.6;">
                         <li><strong>Protects privacy:</strong> Matching calculations happen locally in your browser.
-                            Browser Local LLM keeps gap analysis on your device; external AI providers send prompts to
-                            the selected provider.</li>
+                            Browser Local LLM keeps gap analysis on your device.</li>
                         <li><strong>Speeds up initial mapping:</strong> Instead of manually scanning a control library,
                             users upload a regulatory/custom control set and a control library. ControlMapper ranks
                             likely matches using keyword and semantic similarity.</li>
@@ -102,7 +101,7 @@
                         <li><strong>Upload Data:</strong> Navigate to the <em>Upload</em> tab. Upload your Control
                             Library and Custom Controls data (Excel format). Select which columns contain the IDs and
                             Descriptions. The "Descriptions" column is used for similarity matching.</li>
-                        <li><strong>Local Semantic Matching</strong> Go to <em>Settings</em> and click <em>Load semantic model now</em> when you want semantic comparison. Initial model download will require a bit of time (2 minutes).
+                        <li><strong>Local Semantic Matching</strong> Go to <em>Settings</em> and click <em>Load semantic model now</em> when you want semantic comparison. Initial model download will require a bit of time (30 seconds to 1 min).
                                 Model used: all-MiniLM-L6-v2. If Github source is blocked, download the model separately from Github repo
                                 and save it in the same folder as the tool. </li>
                         <li><strong>Map Controls:</strong> Navigate to the <em>Mapping</em> tab to view similar controls. 
@@ -176,7 +175,6 @@
                                     <select id="ai-provider-select" class="upload-btn"
                                         style="width: auto; background: var(--bg-dark);">
                                         <option value="browser-local">Browser Local LLM (No API Key)</option>
-                                        <option value="gemini">Google Gemini</option>
                                         <option value="openai">OpenAI / Compatible</option>
                                     </select>
                                 </div>
@@ -210,9 +208,9 @@
                                 <div id="ai-model-container" class="toggle-container" style="margin-top: 1rem;">
                                     <label class="switch-label">
                                         <span>Model Name</span>
-                                        <small>e.g., gemini-1.5-flash or gpt-4o</small>
+                                        <small>e.g., gpt-4o</small>
                                     </label>
-                                    <input type="text" id="ai-model-name" placeholder="gemini-1.5-flash"
+                                    <input type="text" id="ai-model-name" placeholder="gpt-4o"
                                         style="background: var(--bg-dark); color: white; border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; width: 300px;">
                                 </div>
 
@@ -250,7 +248,7 @@
                                     <label class="switch-label" style="margin-bottom: 0.5rem;">
                                         <span>Group Analysis Prompt Template</span>
                                         <small>Customize how the AI analyzes combined control coverage. Use
-                                            <code>{{customText}}</code> and <code>{{controlLibraryList}}</code> as
+                                            <code>{{customText}}</code> and <code>{{controlLibraryText}}</code> as
                                             placeholders.</small>
                                     </label>
                                     <textarea id="ai-group-prompt-template"

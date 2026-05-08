@@ -10,7 +10,7 @@ The tool does not map or approve controls on behalf of the user. It ranks candid
 
 ## Key features
 
-- **Protects privacy:** Matching calculations happen locally in your browser. Browser Local LLM keeps gap analysis on your device; Gemini and OpenAI-compatible gap analysis send prompts to the selected provider.
+- **Protects privacy:** Matching calculations happen locally in your browser. Browser Local LLM keeps gap analysis on your device.
 - **Speeds up initial mapping:** Instead of manually scanning a control library, users upload a regulatory/custom control set and a control library. ControlMapper ranks likely matches using keyword and semantic similarity.
 - **Supports human review rather than replacing it:** The tool does not auto-approve mappings. It gives candidate matches, scores, and text side by side so the practitioner remains the decision-maker.
 - **Highlights possible gaps:** The LLM gap analysis can compare a custom requirement against a candidate control and list requirements present in the custom control but missing from the control library.
@@ -21,7 +21,7 @@ The tool does not map or approve controls on behalf of the user. It ranks candid
 1. **Upload data:** Upload your Control Library and Custom Controls data in Excel or CSV format. Select the ID and description columns used for matching.
 2. **Load semantic matching when needed:** In Settings, load the semantic model to enable semantic and weighted-average scoring. If you do not load it, Mapping can still use keyword-only scores.
 3. **Review candidate matches:** Use the Mapping tab to review ranked matches, compare source and candidate text side by side, and choose mappings manually.
-4. **Configure gap analysis optionally:** Enable AI Gap Analysis in Settings, then use Browser Local LLM or a configured cloud/provider LLM to compare controls. Gemini and OpenAI-compatible providers send the gap-analysis prompt, which may include uploaded control text, to the selected provider.
+4. **Configure gap analysis optionally:** Enable AI Gap Analysis in Settings, then use Browser Local LLM or a configured OpenAI-compatible provider to compare controls. OpenAI-compatible providers send the gap-analysis prompt, which may include uploaded control text, to the selected provider.
 5. **Export results:** Download the mapping results to Excel at any point in the process.
 
 ## How to access ControlMapper
@@ -83,14 +83,14 @@ Use this section when you run ControlMapper from files on your machine (not the 
 
 - In **Settings > Generative AI Features**, choose **Browser Local LLM (No API Key)** to run gap analysis fully in the browser.
 - The default local LLM is `Qwen3-0.6B-q4f16_1-MLC`.
-- The first download includes the selected model and smaller runtime files. On typical broadband this may take a few minutes; slower, VPN, or corporate networks may take longer.
+- The first download includes the selected model and smaller runtime files. On typical broadband this may take **30 seconds to 1 minute**; slower, VPN, or corporate networks may take longer.
 - The model is cached locally by the browser after it loads successfully.
 - Browser Local LLM requires WebGPU support and enough available memory. Current desktop Chrome or Edge usually provides the best experience.
-- If Browser Local LLM is unavailable on a device, use Gemini or OpenAI-compatible gap analysis instead.
+- If Browser Local LLM is unavailable on a device, use OpenAI-compatible gap analysis instead.
 
 ## External AI Provider Privacy
 
-- If you choose **Google Gemini** or **OpenAI / Compatible**, gap-analysis prompts are sent from your browser to the selected provider endpoint for processing.
+- If you choose **OpenAI / Compatible**, gap-analysis prompts are sent from your browser to the selected provider endpoint for processing.
 - Those prompts may include uploaded custom requirement text and candidate control-library text.
 - API keys are stored locally in your browser. They are not needed when using Browser Local LLM.
 - Use **Browser Local LLM (No API Key)** if gap analysis needs to stay on the device.
