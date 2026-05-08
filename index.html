@@ -80,8 +80,9 @@
 
                     <h3 style="margin-top: 1.5rem; margin-bottom: 0.5rem; color: var(--text-main);">Key Features</h3>
                     <ul style="margin-left: 1.5rem; margin-bottom: 1rem; color: var(--text-muted); line-height: 1.6;">
-                        <li><strong>Protects privacy:</strong> No data is sent to our servers. All calculations happen
-                            locally on your device.</li>
+                        <li><strong>Protects privacy:</strong> Matching calculations happen locally in your browser.
+                            Browser Local LLM keeps gap analysis on your device; external AI providers send prompts to
+                            the selected provider.</li>
                         <li><strong>Speeds up initial mapping:</strong> Instead of manually scanning a control library,
                             users upload a regulatory/custom control set and a control library. ControlMapper ranks
                             likely matches using keyword and semantic similarity.</li>
@@ -187,6 +188,13 @@
                                     </label>
                                     <input type="password" id="gemini-api-key" placeholder="Enter API Key"
                                         style="background: var(--bg-dark); color: white; border: 1px solid var(--border-color); padding: 8px 12px; border-radius: 6px; width: 300px; font-family: monospace;">
+                                </div>
+
+                                <div id="external-ai-warning" class="model-readiness-banner warning"
+                                    style="display: none; margin-top: 1rem; margin-bottom: 0;">
+                                    External AI provider selected: gap-analysis prompts may include uploaded control text
+                                    and will be sent to the selected provider for processing. Use Browser Local LLM if
+                                    you need analysis to stay on this device.
                                 </div>
 
                                 <div id="ai-base-url-container" class="toggle-container"

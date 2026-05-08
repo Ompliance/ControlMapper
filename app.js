@@ -391,6 +391,7 @@ No significant gaps detected.`;
     const aiBaseUrlContainer = document.getElementById('ai-base-url-container');
     const aiModelContainer = document.getElementById('ai-model-container');
     const localLlmContainer = document.getElementById('local-llm-container');
+    const externalAiWarning = document.getElementById('external-ai-warning');
     const localLlmModelSelect = document.getElementById('local-llm-model-select');
     const localLlmLoadBtn = document.getElementById('local-llm-load-btn');
     const localLlmStatus = document.getElementById('local-llm-status');
@@ -583,6 +584,7 @@ No significant gaps detected.`;
         if (aiBaseUrlContainer) aiBaseUrlContainer.style.display = isOpenAiCompatible ? 'flex' : 'none';
         if (aiModelContainer) aiModelContainer.style.display = isLocalBrowser ? 'none' : 'flex';
         if (localLlmContainer) localLlmContainer.style.display = isLocalBrowser ? 'flex' : 'none';
+        if (externalAiWarning) externalAiWarning.style.display = isLocalBrowser ? 'none' : 'block';
         if (localLlmStatus && !isLocalBrowser) updateLocalLlmStatus('');
         if (!isLocalBrowser) updateLocalLlmLoadButton('Load model now');
 
