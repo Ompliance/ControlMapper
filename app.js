@@ -548,12 +548,13 @@ List out the requirements present in the Custom Control but not present in Contr
 
     function isOldGroupGapTemplate(template) {
         const normalized = normalizeTemplateForMigration(template);
-        return normalized.includes('compare multiple')
+        const isKnownOldDefault = normalized.includes('compare multiple')
+            || normalized.includes('compare coverage in one direction only')
+            || normalized.includes('{{controllibrarylist}}');
+
+        return isKnownOldDefault
             && normalized.includes('custom controls')
-            && normalized.includes('control library')
-            && normalized.includes('combined')
-            && normalized.includes('no significant gaps detected')
-            && !normalized.includes('compare coverage in one direction only');
+            && normalized.includes('control library');
     }
 
     function getDefaultAiModelForProvider(provider) {
