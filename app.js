@@ -46,7 +46,7 @@ List out the requirements present in the Custom Control but not present in Contr
         activeTab: 'readme',
         columnWidths: {}, // format: { classIdentifier: widthInPx }
         aiEnabled: false,
-        modelSource: 'github',
+        modelSource: 'huggingface',
         weightSemantic: 50, // 0-100, percentage for semantic weight
         embeddings: {
             drata: new Map(), // drataText -> embedding
@@ -115,17 +115,17 @@ List out the requirements present in the Custom Control but not present in Contr
 
                 env.remoteHost = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/';
                 env.remotePathTemplate = 'models/{model}/';
-            } else if (state.modelSource === 'github') {
+            } else if (state.modelSource === 'huggingface') {
                 env.allowLocalModels = false;
                 env.allowRemoteModels = true;
-                env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
-                env.remotePathTemplate = 'models/{model}/';
+                env.remoteHost = 'https://huggingface.co';
+                env.remotePathTemplate = '{model}/resolve/{revision}/';
             } else {
-                state.modelSource = 'github';
+                state.modelSource = 'huggingface';
                 env.allowLocalModels = false;
                 env.allowRemoteModels = true;
-                env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
-                env.remotePathTemplate = 'models/{model}/';
+                env.remoteHost = 'https://huggingface.co';
+                env.remotePathTemplate = '{model}/resolve/{revision}/';
             }
 
             isPipelineLoading = true;
@@ -191,14 +191,12 @@ List out the requirements present in the Custom Control but not present in Contr
                 if (aiToggle) aiToggle.checked = false;
                 if (modelStatus) {
                     const isTimeout = error.message.includes('Timed Out');
-                    const suggestMirror = state.modelSource.includes('huggingface.co');
                     modelStatus.innerHTML = `<div style="color:#ef4444; display: flex; flex-direction: column; gap: 0.25rem;">
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
                         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
                         <span>${isTimeout ? 'Request Timed Out.' : 'Connection Failed.'}</span>
                         <a href="#" onclick="retryAiLoad(); return false;" style="color: var(--primary); text-decoration: underline;">Retry?</a>
                     </div>
-                    ${suggestMirror ? '<small style="color: var(--text-muted); opacity: 0.8;">Company network blocking HF? Try <strong>HF Mirror</strong> in Settings.</small>' : ''}
                 </div>`;
                 }
 
@@ -1836,17 +1834,13 @@ List out the requirements present in the Custom Control but not present in Contr
             let migratedPromptTemplates = false;
             state.autoLoadModel = false;
             applyTheme(state.theme || 'dark');
-            if (state.modelSource === 'custom') state.modelSource = 'github';
+            if (state.modelSource === 'custom' || state.modelSource === 'github') state.modelSource = 'huggingface';
             if (!LOCAL_LLM_MODELS.includes(state.localLlmModel)) {
                 state.localLlmModel = DEFAULT_LOCAL_LLM_MODEL;
             }
             if (state.aiProvider === 'browser-local') {
                 state.aiModel = state.localLlmModel;
             }
-
-            // Enforce defaults if saved as empty strings
-            if (!state.aiPromptTemplate) state.aiPromptTemplate = DEFAULT_AI_PROMPT_TEMPLATE;
-            if (!state.aiGroupPromptTemplate) state.aiGroupPromptTemplate = DEFAULT_AI_GROUP_PROMPT_TEMPLATE;
 
             // Migration: update old drata placeholders
             if (state.aiPromptTemplate) {
@@ -1883,13 +1877,6 @@ List out the requirements present in the Custom Control but not present in Contr
             if (!state.aiProvider) state.aiProvider = 'browser-local';
             if (state.aiProvider === 'gemini') state.aiProvider = 'browser-local';
             if (state.aiProvider === 'browser-local' && !state.aiModel) state.aiModel = state.localLlmModel;
-            if (geminiApiKeyInput) geminiApiKeyInput.value = state.geminiApiKey || '';
-            if (aiBaseUrlInput) aiBaseUrlInput.value = state.aiBaseUrl || '';
-            syncAiProviderSettings();
-            if (aiPromptTemplateInput) aiPromptTemplateInput.value = state.aiPromptTemplate || '';
-            if (aiGroupPromptTemplateInput) aiGroupPromptTemplateInput.value = state.aiGroupPromptTemplate || '';
-            if (autoLoadToggle) autoLoadToggle.checked = false;
-
             if (state.drata.data) updateUI('drata');
             if (state.custom.data) updateUI('custom');
 
@@ -1899,6 +1886,13 @@ List out the requirements present in the Custom Control but not present in Contr
                 applySavedColumnWidths();
             }
         }
+        if (!state.aiPromptTemplate) state.aiPromptTemplate = DEFAULT_AI_PROMPT_TEMPLATE;
+        if (!state.aiGroupPromptTemplate) state.aiGroupPromptTemplate = DEFAULT_AI_GROUP_PROMPT_TEMPLATE;
+        if (geminiApiKeyInput) geminiApiKeyInput.value = state.geminiApiKey || '';
+        if (aiBaseUrlInput) aiBaseUrlInput.value = state.aiBaseUrl || '';
+        if (aiPromptTemplateInput) aiPromptTemplateInput.value = state.aiPromptTemplate;
+        if (aiGroupPromptTemplateInput) aiGroupPromptTemplateInput.value = state.aiGroupPromptTemplate;
+        if (autoLoadToggle) autoLoadToggle.checked = false;
         applyTheme(state.theme || 'dark');
         syncAiProviderSettings();
         showSemanticModelIdleStatus();

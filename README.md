@@ -26,20 +26,13 @@ The tool does not map or approve controls on behalf of the user. It ranks candid
 
 ## How to access ControlMapper
 
-There are **two ways** to use the tool:
-
-1. **Hosted (no download)**  
-   Open it in your browser at **[https://www.ompliance.com/controlmapper](https://www.ompliance.com/controlmapper)**.  
-   You only need a modern browser and (for first-time model load) an internet connection. Everything below about copying files is **not** required.
-
-2. **From GitHub (download / clone)**  
-   Get the app files from this repository — either **clone** the repo or use **Code → Download ZIP** — then follow [Local setup](#local-setup-github-download).
+Get the app files from this repository by cloning the repo or using **Code > Download ZIP**, then follow [Local setup](#local-setup-github-download).
 
 ---
 
 ## Local setup (GitHub download)
 
-Use this section when you run ControlMapper from files on your machine (not the hosted URL).
+Use this section when you run ControlMapper from files on your machine.
 
 **What you need**
 
@@ -72,11 +65,10 @@ Use this section when you run ControlMapper from files on your machine (not the 
 
 ## Model Source Behavior
 
-- Default semantic-matching model source is **GitHub Repo (Ompliance/ControlMapper)**.
+- Default semantic-matching model source is **Hugging Face (Xenova/all-MiniLM-L6-v2)**.
 - You can switch source in **Settings > Model Source**:
-  - `GitHub Repo (Ompliance/ControlMapper)`
+  - `Hugging Face (Xenova/all-MiniLM-L6-v2)`
   - `Local Folder (Self-hosted)`
-  - `Custom URL...`
 - Semantic model files are cached in browser storage after first successful load.
 
 ## Browser Local LLM Gap Analysis
