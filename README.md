@@ -18,7 +18,7 @@ The tool does not map or approve controls on behalf of the user. It ranks candid
 
 ## How to use
 
-1. **Upload data:** Upload your Control Library and Custom Controls data in Excel or CSV format. Select the ID and description columns used for matching.
+1. **Upload data:** Upload your Control Library and Custom Controls data in Excel or CSV format, or use **Load demo set** to try a small SOC 2 to ISO 27001 governance mapping example. Select the ID and description columns used for matching.
 2. **Load semantic matching when needed:** In Settings, load the semantic model to enable semantic and weighted-average scoring. If you do not load it, Mapping can still use keyword-only scores.
 3. **Review candidate matches:** Use the Mapping tab to review ranked matches, compare source and candidate text side by side, and choose mappings manually.
 4. **Configure gap analysis optionally:** Enable AI Gap Analysis in Settings, then use Browser Local LLM or a configured OpenAI-compatible provider to compare controls. OpenAI-compatible providers send the gap-analysis prompt, which may include uploaded control text, to the selected provider.
@@ -39,6 +39,7 @@ Use this section when you run ControlMapper from files on your machine.
 - **Browser**: Chrome, Edge, or Firefox (recommended).
 - **Internet**: For the first-time transformer model download (unless you use fully local model files). Browser Local LLM gap analysis also needs a first-time model/runtime download.
 - **Files**: At minimum `index.html`, `app.js`, and `styles.css`. Include `models/` if you use **Local Folder** as the model source in Settings.
+- **Demo CSVs**: Optional sample files are available in `demo/` if you want to inspect or upload the same SOC 2 and ISO 27001 demo data manually.
 - **Optional**: Python, Node.js, or VS Code Live Server — only if opening `index.html` directly (`file://`) fails in your environment.
 
 **Steps**
@@ -65,9 +66,9 @@ Use this section when you run ControlMapper from files on your machine.
 
 ## Model Source Behavior
 
-- Default semantic-matching model source is **Hugging Face (Xenova/all-MiniLM-L6-v2)**.
+- Default semantic-matching model source is **GitHub Repo (Ompliance/ControlMapper)**.
 - You can switch source in **Settings > Model Source**:
-  - `Hugging Face (Xenova/all-MiniLM-L6-v2)`
+  - `GitHub Repo (Ompliance/ControlMapper)`
   - `Local Folder (Self-hosted)`
 - Semantic model files are cached in browser storage after first successful load.
 

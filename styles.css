@@ -78,6 +78,12 @@ header {
     border-bottom: 1px solid var(--border-color);
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
 .theme-toggle {
     display: inline-flex;
     align-items: center;
@@ -239,6 +245,18 @@ header {
     color: var(--text-muted);
     font-size: 0.9rem;
     margin-bottom: 2rem;
+}
+
+.demo-data-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.demo-data-card .card-subtext {
+    margin-bottom: 0;
 }
 
 .drop-zone {
@@ -981,10 +999,21 @@ input:checked+.slider:before {
         grid-template-columns: 1fr;
     }
 
+    .demo-data-card {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     header {
         flex-direction: column;
         gap: 1.5rem;
     }
+
+    .header-actions {
+        width: 100%;
+        justify-content: center;
+    }
+
 }
 
 /* Mapping Controls Styling */

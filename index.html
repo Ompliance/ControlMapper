@@ -22,8 +22,8 @@
         // Configure for environments without local model serving (e.g. direct file execution)
         env.allowLocalModels = false;
         env.useBrowserCache = true;
-        env.remoteHost = 'https://huggingface.co';
-        env.remotePathTemplate = '{model}/resolve/{revision}/';
+        env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
+        env.remotePathTemplate = 'models/{model}/';
 
         window.transformers = { pipeline, env };
     </script>
@@ -131,7 +131,7 @@
                             <select id="model-source-select" class="upload-btn"
                                 style="width: auto; background: var(--bg-dark);">
                                 <option value="local">Local Folder (Self-hosted)</option>
-                                <option value="huggingface">Hugging Face (Xenova/all-MiniLM-L6-v2)</option>
+                                <option value="github">GitHub Repo (Ompliance/ControlMapper)</option>
                             </select>
                         </div>
 
@@ -264,6 +264,13 @@
 
             <section id="upload" class="tab-content">
                 <div id="upload-model-status" class="model-readiness-banner"></div>
+                <div class="card demo-data-card">
+                    <div>
+                        <h2>Demo Data</h2>
+                        <p class="card-subtext">Load a small SOC 2 control library and ISO 27001 governance set to try the mapping workflow.</p>
+                    </div>
+                    <button id="load-demo-data-btn" class="upload-btn primary-btn" type="button">Load demo set</button>
+                </div>
                 <div class="grid-container">
                     <!-- Control Library Upload -->
                     <div class="card upload-card" id="drata-card">

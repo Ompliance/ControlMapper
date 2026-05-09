@@ -15,10 +15,113 @@ List out the requirements present in the Custom Control but not present in Contr
 
     const WEBLLM_CDN_URL = 'https://esm.run/@mlc-ai/web-llm';
     const DEFAULT_LOCAL_LLM_MODEL = 'Qwen3-0.6B-q4f16_1-MLC';
+    const LOCAL_LLM_CONTEXT_WINDOW_SIZE = 32768;
+    const QWEN_THINK = '/think';
+    const LOCAL_LLM_SYSTEM_PROMPT = `You are a strict control mapping reviewer. Compare only from Custom Controls to Control Library. Report a gap when the Control Library omits, generalizes, or only indirectly addresses a Custom Controls requirement. Do not reward extra detail in the Control Library unless it covers the Custom Controls requirement. Return only the final answer. ${QWEN_THINK}`;
     const LOCAL_LLM_MODELS = [
         DEFAULT_LOCAL_LLM_MODEL
     ];
     const PROVIDER_DEFAULT_MODELS = ['gpt-4o', ...LOCAL_LLM_MODELS];
+    const DEMO_SOC2_CONTROLS = [
+        {
+            'Control ID': 'SOC2-CC1.1',
+            'Framework': 'SOC 2 Trust Services Criteria',
+            'Domain': 'Governance and oversight',
+            'Control Title': 'Board oversight of control environment',
+            'Control Description': 'The board or equivalent governance body exercises oversight of management, reviews control environment matters, and challenges remediation of significant control issues.',
+            'Evidence Examples': 'Board minutes, risk committee packs, action registers'
+        },
+        {
+            'Control ID': 'SOC2-CC1.2',
+            'Framework': 'SOC 2 Trust Services Criteria',
+            'Domain': 'Integrity and ethical values',
+            'Control Title': 'Code of conduct and ethics expectations',
+            'Control Description': 'Management defines expected standards of conduct, communicates ethics and compliance expectations, and addresses deviations through defined accountability processes.',
+            'Evidence Examples': 'Code of conduct, employee attestations, disciplinary procedure'
+        },
+        {
+            'Control ID': 'SOC2-CC1.3',
+            'Framework': 'SOC 2 Trust Services Criteria',
+            'Domain': 'Organizational structure',
+            'Control Title': 'Defined responsibilities and reporting lines',
+            'Control Description': 'Roles, responsibilities, reporting lines, and delegated authorities are documented so personnel understand accountability for control operation and oversight.',
+            'Evidence Examples': 'Org chart, role descriptions, delegation matrix'
+        },
+        {
+            'Control ID': 'SOC2-CC2.1',
+            'Framework': 'SOC 2 Trust Services Criteria',
+            'Domain': 'Communication and information',
+            'Control Title': 'Internal control communication',
+            'Control Description': 'Relevant control responsibilities, policy changes, and issue information are communicated to personnel who need the information to perform their duties.',
+            'Evidence Examples': 'Policy communications, control owner briefings, intranet notices'
+        },
+        {
+            'Control ID': 'SOC2-CC3.1',
+            'Framework': 'SOC 2 Trust Services Criteria',
+            'Domain': 'Risk assessment',
+            'Control Title': 'Risk identification and assessment',
+            'Control Description': 'Management identifies and assesses risks to business objectives, including changes to systems, vendors, regulations, and operations that may affect control design.',
+            'Evidence Examples': 'Risk register, risk assessment methodology, change impact assessments'
+        },
+        {
+            'Control ID': 'SOC2-CC4.1',
+            'Framework': 'SOC 2 Trust Services Criteria',
+            'Domain': 'Monitoring activities',
+            'Control Title': 'Control monitoring and remediation',
+            'Control Description': 'Control performance is monitored through management review, self-assessments, and issue tracking, with deficiencies assigned owners and tracked to closure.',
+            'Evidence Examples': 'Control testing results, issue tracker, management review minutes'
+        }
+    ];
+    const DEMO_ISO27001_REQUIREMENTS = [
+        {
+            'Requirement ID': 'ISO-5.1',
+            'Framework': 'ISO/IEC 27001:2022 Annex A',
+            'Domain': 'Organizational controls',
+            'Requirement Title': 'Policies for information security',
+            'Requirement Text': 'Information security policies and topic-specific policies should be defined, approved by management, published, communicated to relevant personnel, and reviewed at planned intervals.',
+            'Review Focus': 'Policy ownership, approval, communication, and review cadence'
+        },
+        {
+            'Requirement ID': 'ISO-5.2',
+            'Framework': 'ISO/IEC 27001:2022 Annex A',
+            'Domain': 'Organizational controls',
+            'Requirement Title': 'Information security roles and responsibilities',
+            'Requirement Text': 'Information security roles and responsibilities should be defined and allocated according to organizational needs, including accountability for control operation and oversight.',
+            'Review Focus': 'Role assignment, accountability, and reporting lines'
+        },
+        {
+            'Requirement ID': 'ISO-5.4',
+            'Framework': 'ISO/IEC 27001:2022 Annex A',
+            'Domain': 'Organizational controls',
+            'Requirement Title': 'Management responsibilities',
+            'Requirement Text': 'Management should require personnel to apply information security in accordance with established policies, procedures, and organizational expectations.',
+            'Review Focus': 'Management direction, standards of behavior, and enforcement'
+        },
+        {
+            'Requirement ID': 'ISO-5.7',
+            'Framework': 'ISO/IEC 27001:2022 Annex A',
+            'Domain': 'Threat and risk governance',
+            'Requirement Title': 'Threat intelligence',
+            'Requirement Text': 'Information relating to information security threats should be collected, analyzed, and used to support risk decisions and control improvements.',
+            'Review Focus': 'Risk inputs, assessment updates, and control response'
+        },
+        {
+            'Requirement ID': 'ISO-5.8',
+            'Framework': 'ISO/IEC 27001:2022 Annex A',
+            'Domain': 'Project and change governance',
+            'Requirement Title': 'Information security in project management',
+            'Requirement Text': 'Information security should be integrated into project management so changes are assessed for security impact, assigned owners, and tracked through implementation.',
+            'Review Focus': 'Change impact assessment and assigned accountability'
+        },
+        {
+            'Requirement ID': 'ISO-5.35',
+            'Framework': 'ISO/IEC 27001:2022 Annex A',
+            'Domain': 'Compliance governance',
+            'Requirement Title': 'Independent review of information security',
+            'Requirement Text': 'The organization should independently review information security at planned intervals or when significant changes occur, and track resulting findings through remediation.',
+            'Review Focus': 'Independent review, findings management, and closure evidence'
+        }
+    ];
 
     // State management
     const state = {
@@ -46,7 +149,7 @@ List out the requirements present in the Custom Control but not present in Contr
         activeTab: 'readme',
         columnWidths: {}, // format: { classIdentifier: widthInPx }
         aiEnabled: false,
-        modelSource: 'huggingface',
+        modelSource: 'github',
         weightSemantic: 50, // 0-100, percentage for semantic weight
         embeddings: {
             drata: new Map(), // drataText -> embedding
@@ -115,17 +218,17 @@ List out the requirements present in the Custom Control but not present in Contr
 
                 env.remoteHost = window.location.origin + window.location.pathname.split('/').slice(0, -1).join('/') + '/';
                 env.remotePathTemplate = 'models/{model}/';
-            } else if (state.modelSource === 'huggingface') {
+            } else if (state.modelSource === 'github') {
                 env.allowLocalModels = false;
                 env.allowRemoteModels = true;
-                env.remoteHost = 'https://huggingface.co';
-                env.remotePathTemplate = '{model}/resolve/{revision}/';
+                env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
+                env.remotePathTemplate = 'models/{model}/';
             } else {
-                state.modelSource = 'huggingface';
+                state.modelSource = 'github';
                 env.allowLocalModels = false;
                 env.allowRemoteModels = true;
-                env.remoteHost = 'https://huggingface.co';
-                env.remotePathTemplate = '{model}/resolve/{revision}/';
+                env.remoteHost = 'https://raw.githubusercontent.com/Ompliance/ControlMapper/main/';
+                env.remotePathTemplate = 'models/{model}/';
             }
 
             isPipelineLoading = true;
@@ -355,6 +458,7 @@ List out the requirements present in the Custom Control but not present in Contr
     const downloadAiBtn = document.getElementById('download-ai-btn');
     const modelSourceSelect = document.getElementById('model-source-select');
     const uploadModelStatus = document.getElementById('upload-model-status');
+    const loadDemoDataBtn = document.getElementById('load-demo-data-btn');
 
     const mappingWeightSlider = document.getElementById('mapping-weight-slider');
     const weightDisplay = document.getElementById('weight-value-display');
@@ -636,7 +740,11 @@ List out the requirements present in the Custom Control but not present in Contr
             };
 
             loadedLocalLlmModel = modelId;
-            localLlmEngine = await webLlmModule.CreateMLCEngine(modelId, { initProgressCallback });
+            localLlmEngine = await webLlmModule.CreateMLCEngine(
+                modelId,
+                { initProgressCallback },
+                { context_window_size: LOCAL_LLM_CONTEXT_WINDOW_SIZE }
+            );
             updateLocalLlmStatus(`Browser Local LLM ready: ${modelId}`);
             updateLocalLlmLoadButton('Model ready', true);
             updateUploadModelStatus();
@@ -662,11 +770,19 @@ List out the requirements present in the Custom Control but not present in Contr
 
             const completion = await engine.chat.completions.create({
                 messages: [
-                    { role: 'system', content: 'You are a strict control mapping reviewer. Compare only from Custom Controls to Control Library. Report a gap when the Control Library omits, generalizes, or only indirectly addresses a Custom Controls requirement. Do not reward extra detail in the Control Library unless it covers the Custom Controls requirement. Return only the final answer. Do not include reasoning, chain-of-thought, thinking tags, or analysis notes.' },
-                    { role: 'user', content: prompt }
+                    { role: 'system', content: LOCAL_LLM_SYSTEM_PROMPT },
+                    { role: 'user', content: `${prompt}\n\n${QWEN_THINK}` }
                 ],
-                temperature: 0,
-                max_tokens: 1024
+                temperature: 0.6,
+                top_p: 0.95,
+                max_tokens: 1024,
+                extra_body: {
+                    enable_thinking: true,
+                    top_k: 20,
+                    chat_template_kwargs: {
+                        enable_thinking: true
+                    }
+                }
             });
 
             const result = stripModelThinking(completion?.choices?.[0]?.message?.content);
@@ -1480,6 +1596,10 @@ List out the requirements present in the Custom Control but not present in Contr
     }
 
     // File Upload Handlers
+    if (loadDemoDataBtn) {
+        loadDemoDataBtn.addEventListener('click', loadDemoData);
+    }
+
     if (drataInput) {
         drataInput.addEventListener('change', (e) => {
             const file = e.target.files[0];
@@ -1495,6 +1615,33 @@ List out the requirements present in the Custom Control but not present in Contr
             if (file) handleFileUpload(file, 'custom');
             customInput.value = ''; // Reset so the same file can be selected again
         });
+    }
+
+    function loadDemoData() {
+        state.drata.data = DEMO_SOC2_CONTROLS.map(row => ({ ...row }));
+        state.drata.columns = ['Control ID', 'Framework', 'Domain', 'Control Title', 'Control Description', 'Evidence Examples'];
+        state.drata.idColumn = 'Control ID';
+        state.drata.selectedColumn = 'Control Description';
+        state.drata.filename = 'Demo SOC 2 governance controls';
+
+        state.custom.data = DEMO_ISO27001_REQUIREMENTS.map(row => ({ ...row }));
+        state.custom.columns = ['Requirement ID', 'Framework', 'Domain', 'Requirement Title', 'Requirement Text', 'Review Focus'];
+        state.custom.idColumn = 'Requirement ID';
+        state.custom.selectedColumn = 'Requirement Text';
+        state.custom.filename = 'Demo ISO 27001 governance requirements';
+
+        state.mappings = {};
+        state.comments = {};
+        state.groupComments = {};
+        state.embeddings.drata.clear();
+        state.embeddings.custom.clear();
+        state.drataTokens.clear();
+
+        updateUI('drata');
+        updateUI('custom');
+        updateSummary();
+        renderMappingTable();
+        saveState();
     }
 
     // Drop Zone Visuals
@@ -1834,7 +1981,7 @@ List out the requirements present in the Custom Control but not present in Contr
             let migratedPromptTemplates = false;
             state.autoLoadModel = false;
             applyTheme(state.theme || 'dark');
-            if (state.modelSource === 'custom' || state.modelSource === 'github') state.modelSource = 'huggingface';
+            if (state.modelSource === 'custom' || state.modelSource === 'huggingface') state.modelSource = 'github';
             if (!LOCAL_LLM_MODELS.includes(state.localLlmModel)) {
                 state.localLlmModel = DEFAULT_LOCAL_LLM_MODEL;
             }
