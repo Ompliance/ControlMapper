@@ -1824,19 +1824,22 @@ List out the requirements present in the Custom Control but not present in Contr
         saveState();
     });
 
+    let customColumnChangeTimer = null;
     customSelect.addEventListener('change', (e) => {
         state.custom.selectedColumn = e.target.value;
         renderPreview('custom');
         updateSummary();
-        renderMappingTable();
         saveState();
+        clearTimeout(customColumnChangeTimer);
+        customColumnChangeTimer = setTimeout(() => renderMappingTable(), 300);
     });
 
     customIdSelect.addEventListener('change', (e) => {
         state.custom.idColumn = e.target.value;
         renderPreview('custom');
-        renderMappingTable();
         saveState();
+        clearTimeout(customColumnChangeTimer);
+        customColumnChangeTimer = setTimeout(() => renderMappingTable(), 300);
     });
 
     function updateUI(type) {
