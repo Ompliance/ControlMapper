@@ -605,14 +605,8 @@ td.col-comments,
 td.col-group-analysis {
     padding: 0 !important;
     vertical-align: stretch;
-    background: rgba(0, 0, 0, 0.1);
     height: 1px;
     /* Allows percentage height on children in some browsers */
-}
-
-body[data-theme="light"] td.col-comments,
-body[data-theme="light"] td.col-group-analysis {
-    background: #f1f5f9;
 }
 
 .comment-wrapper {
@@ -644,11 +638,11 @@ body[data-theme="light"] td.col-group-analysis {
 }
 
 tbody tr:nth-child(even) {
-    background: rgba(255, 255, 255, 0.02);
+    background: inherit;
 }
 
 body[data-theme="light"] tbody tr:nth-child(even) {
-    background: #f8fafc;
+    background: inherit;
 }
 
 tbody tr:hover {
