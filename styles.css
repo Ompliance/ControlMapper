@@ -567,14 +567,13 @@ thead th {
 }
 
 /* Specific Column Widths */
-.col-regulation {
+td.col-regulation {
     font-weight: 500;
 }
 
-
-
 .col-score,
-.col-semantics {
+.col-semantics,
+.col-weighted {
     text-align: center;
     font-weight: 700;
 }
@@ -585,13 +584,16 @@ thead th {
 
 .col-semantics {
     color: #8b5cf6;
-    /* A distinct purple for semantics */
+}
+
+.col-weighted {
+    color: var(--primary);
 }
 
 .col-id {
     text-align: center;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--text-main);
 }
 
 .col-select,
