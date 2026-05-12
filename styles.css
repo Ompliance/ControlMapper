@@ -539,7 +539,8 @@ thead th {
     font-size: 0.75rem;
     letter-spacing: 0.05em;
     user-select: none;
-    box-shadow: 0 1px 0 var(--border-color); /* Ensures there's a border when scrolling */
+    border: 1px solid var(--border-color); /* Explicit border needed — border-collapse breaks on sticky elements */
+    box-shadow: 0 1px 0 var(--border-color);
 }
 
 .resizer {
